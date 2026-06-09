@@ -23,8 +23,9 @@ A Vue 3 single-page application for managing school elections at Baguio Patrioti
 - **Vue Router** (client-side routing)
 - **Vite** (build tool)
 - **Chart.js + vue-chartjs** (dashboard area chart)
-- **IndexedDB** (primary data store)
-- **localStorage** (fallback store + theme persistence)
+- **Firebase Firestore** (cloud database)
+- **IndexedDB** (local fallback cache)
+- **localStorage** (secondary fallback + theme persistence)
 
 ## Getting Started
 
@@ -89,16 +90,40 @@ src/
 └── main.js
 ```
 
+## Deployment (Firebase + Vercel)
+
+### 1. Firebase Setup
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) → **Create project** (e.g. `bphs-votation`)
+2. Register a **Web app** — copy the `firebaseConfig` object
+3. **Build** → **Firestore Database** → **Create database** (start in test mode)
+4. **Build** → **Authentication** → **Sign-in method** → Enable **Anonymous**
+
+### 2. Vercel Deployment
+
+1. Push this repo to GitHub
+2. Go to [vercel.com](https://vercel.com) → **Add New** → **Project** → Import the repo
+3. Add this environment variable:
+   - **Name:** `VITE_FIREBASE_CONFIG`
+   - **Value:** Paste the entire `firebaseConfig` JSON as a single string
+4. Click **Deploy**
+
+### 3. Local Development
+
+```bash
+# Copy and fill in your Firebase config
+cp .env.example .env
+
+npm run dev
+```
+
 ## Data Persistence
 
-Data is stored in the browser's **IndexedDB** (with localStorage fallback). This means:
-- All data is local to each device — **there is no server**.
-- Data is scoped by school year. Use **Settings** to switch or create years.
-- To share data across devices, data must be manually re-entered or a backend server added.
+Data syncs to **Firebase Firestore** (cloud). If Firestore is unavailable, data falls back to **IndexedDB** (local), then **localStorage**. The app works entirely offline with local storage if no Firebase config is provided.
 
 ## Notes
 
-- The app uses `createWebHistory()` — a production server must be configured to fall back to `index.html` for client-side routing.
+- Client-side routing is handled by `vercel.json` rewrites on Vercel.
 - Admin password is set in Settings (default: `admin`).
 - Classroom positions are shared across all grades; candidates are filtered by grade/section.
 - Clubs are configured as a comma-separated list in Settings.
