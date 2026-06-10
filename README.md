@@ -15,7 +15,7 @@ A Vue 3 single-page application for managing school elections at Baguio Patrioti
 - **Device-based voting guard** — One vote per device per election type
 - **PDF-ready print output** — Formal bond-paper style with per-election-type and per-club pages
 - **Mobile responsive** — Bottom navigation bar, compact tables, fluid layouts
-- **IndexedDB persistence** — Data survives page refresh; localStorage fallback
+- **Supabase cloud sync** — Data shared across devices; falls back to IndexedDB + localStorage
 
 ## Tech Stack
 
@@ -23,7 +23,7 @@ A Vue 3 single-page application for managing school elections at Baguio Patrioti
 - **Vue Router** (client-side routing)
 - **Vite** (build tool)
 - **Chart.js + vue-chartjs** (dashboard area chart)
-- **Firebase Firestore** (cloud database)
+- **Supabase** (cloud PostgreSQL database)
 - **IndexedDB** (local fallback cache)
 - **localStorage** (secondary fallback + theme persistence)
 
@@ -74,7 +74,8 @@ src/
 │   ├── Admin*.vue    # Admin panel sub-views
 │   ├── ChatBot.vue   # FAQ chatbot with report mode
 │   └── ModalDialog.vue
-├── db/               # IndexedDB + localStorage persistence layer
+├── supabase.js       # Supabase client initialization
+├── db/               # Persistence layer (Supabase → IndexedDB → localStorage)
 ├── router/           # Vue Router configuration
 ├── store/            # Reactive state store (data, auth, theme)
 ├── utils/            # Helper utilities
@@ -90,36 +91,45 @@ src/
 └── main.js
 ```
 
-## Deployment (Firebase + Vercel)
+## Deployment (Supabase + Vercel)
 
-### 1. Firebase Setup
+### 1. Supabase Setup
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) → **Create project** (e.g. `bphs-votation`)
-2. Register a **Web app** — copy the `firebaseConfig` object
-3. **Build** → **Firestore Database** → **Create database** (start in test mode)
-4. **Build** → **Authentication** → **Sign-in method** → Enable **Anonymous**
+1. Go to [supabase.com](https://supabase.com) → **Start your project** (e.g. `bphs-votation`)
+2. In the dashboard: **Project Settings** → **API** — copy the **Project URL** and **anon public key**
+3. **SQL Editor** → run this to create the table:
+
+```sql
+CREATE TABLE elections (
+  year TEXT PRIMARY KEY,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
 
 ### 2. Vercel Deployment
 
 1. Push this repo to GitHub
 2. Go to [vercel.com](https://vercel.com) → **Add New** → **Project** → Import the repo
-3. Add this environment variable:
-   - **Name:** `VITE_FIREBASE_CONFIG`
-   - **Value:** Paste the entire `firebaseConfig` JSON as a single string
+3. Add these environment variables:
+   - **Name:** `VITE_SUPABASE_URL`
+   - **Value:** Your Supabase project URL
+   - **Name:** `VITE_SUPABASE_ANON_KEY`
+   - **Value:** Your Supabase anon/public key
 4. Click **Deploy**
 
 ### 3. Local Development
 
 ```bash
-# Copy and fill in your Firebase config
 cp .env.example .env
+# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
 
 npm run dev
 ```
 
 ## Data Persistence
 
-Data syncs to **Firebase Firestore** (cloud). If Firestore is unavailable, data falls back to **IndexedDB** (local), then **localStorage**. The app works entirely offline with local storage if no Firebase config is provided.
+Data syncs to **Supabase** (cloud PostgreSQL). If Supabase is unavailable, data falls back to **IndexedDB** (local), then **localStorage**. The app works entirely offline with local storage if no Supabase config is provided.
 
 ## Notes
 

@@ -1,10 +1,4 @@
-import { doc, getDoc, setDoc, getDocs, collection, deleteDoc } from 'firebase/firestore'
-import { signInAnonymously } from 'firebase/auth'
-import { db, auth, fbInitialized } from '../firebase.js'
-
-/* ------------------------------------------------------------------ */
-/*  Firestore-backed persistence layer                                 */
-/* ------------------------------------------------------------------ */
+import { supabase, sbInitialized } from '../supabase.js'
 
 const DB_NAME = 'SBO_Votation';
 const STORE_NAME = 'elections';
@@ -25,24 +19,17 @@ export const DB = {
     if (this.initPromise) return this.initPromise
 
     this.initPromise = (async () => {
-      if (fbInitialized && db && auth) {
-        try {
-          await signInAnonymously(auth)
-          this.ready = true
-          return
-        } catch (e) {
-          console.warn('Firebase auth failed, falling back to IndexedDB.', e)
-        }
-      } else {
-        console.warn('Firebase not configured, falling back to IndexedDB.')
+      if (sbInitialized && supabase) {
+        this.ready = true
+        return
       }
+      console.warn('Supabase not configured, using local storage fallback.')
       await this._openIDB()
     })()
 
     return this.initPromise
   },
 
-  /* IndexedDB fallback open */
   async _openIDB() {
     try {
       this._idb = await new Promise((resolve, reject) => {
@@ -64,13 +51,14 @@ export const DB = {
   },
 
   async get(year) {
-    /* Try Firestore first */
-    if (this.ready && db) {
+    /* Supabase */
+    if (this.ready && supabase) {
       try {
-        const snap = await getDoc(doc(db, STORE_NAME, year))
-        if (snap.exists()) return snap.data()
+        const { data, error } = await supabase.from('elections').select('data').eq('year', year).maybeSingle()
+        if (error) throw error
+        if (data) return data.data
       } catch (e) {
-        console.warn('Firestore get failed, falling back.', e)
+        console.warn('Supabase get failed, falling back.', e)
       }
     }
 
@@ -98,15 +86,18 @@ export const DB = {
 
   async save(year, data) {
     const payload = clone(data)
-    payload.year = year
 
-    /* Firestore */
-    if (this.ready && db) {
+    /* Supabase */
+    if (this.ready && supabase) {
       try {
-        await setDoc(doc(db, STORE_NAME, year), payload)
+        const { error } = await supabase.from('elections').upsert(
+          { year, data: payload, updated_at: new Date().toISOString() },
+          { onConflict: 'year' }
+        )
+        if (error) throw error
         return
       } catch (e) {
-        console.warn('Firestore save failed, falling back.', e)
+        console.warn('Supabase save failed, falling back.', e)
       }
     }
 
@@ -115,7 +106,7 @@ export const DB = {
       try {
         await new Promise((resolve, reject) => {
           const tx = this._idb.transaction(STORE_NAME, 'readwrite')
-          tx.objectStore(STORE_NAME).put({ ...payload, updatedAt: new Date().toISOString() })
+          tx.objectStore(STORE_NAME).put({ ...payload, year, updatedAt: new Date().toISOString() })
           tx.oncomplete = () => resolve()
           tx.onerror = e => reject(e.target.error)
         })
@@ -132,13 +123,14 @@ export const DB = {
   },
 
   async list() {
-    /* Firestore */
-    if (this.ready && db) {
+    /* Supabase */
+    if (this.ready && supabase) {
       try {
-        const snap = await getDocs(collection(db, STORE_NAME))
-        return snap.docs.map(d => d.id).sort()
+        const { data, error } = await supabase.from('elections').select('year').order('year', { ascending: true })
+        if (error) throw error
+        return (data || []).map(d => d.year).sort()
       } catch (e) {
-        console.warn('Firestore list failed, falling back.', e)
+        console.warn('Supabase list failed, falling back.', e)
       }
     }
 
@@ -164,13 +156,14 @@ export const DB = {
   },
 
   async remove(year) {
-    /* Firestore */
-    if (this.ready && db) {
+    /* Supabase */
+    if (this.ready && supabase) {
       try {
-        await deleteDoc(doc(db, STORE_NAME, year))
+        const { error } = await supabase.from('elections').delete().eq('year', year)
+        if (error) throw error
         return
       } catch (e) {
-        console.warn('Firestore remove failed, falling back.', e)
+        console.warn('Supabase remove failed, falling back.', e)
       }
     }
 
