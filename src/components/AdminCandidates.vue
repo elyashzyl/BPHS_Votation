@@ -192,15 +192,33 @@ function saveEdit() {
   saveSync()
 }
 
+function resizeImage(file, maxW, maxQ, cb) {
+  const r = new FileReader()
+  r.onload = ev => {
+    const img = new Image()
+    img.onload = () => {
+      let w = img.width, h = img.height
+      if (w > maxW) { h = h * maxW / w; w = maxW }
+      if (h > maxW) { w = w * maxW / h; h = maxW }
+      const c = document.createElement('canvas'); c.width = w; c.height = h
+      const x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h)
+      cb(c.toDataURL('image/jpeg', maxQ))
+    }
+    img.src = ev.target.result
+  }
+  r.readAsDataURL(file)
+}
+
 function uploadPhoto(id) {
   const inp = document.createElement('input')
   inp.type = 'file'; inp.accept = 'image/*'
   inp.onchange = e => {
     const f = e.target.files[0]; if (!f) return
     if (f.size > 10 * 1024 * 1024) { alert('Max 10MB.'); return }
-    const r = new FileReader()
-    r.onload = ev => { const c = state.data.candidates.find(x => x.id === id); if (c) { c.image = ev.target.result; saveSync() } }
-    r.readAsDataURL(f)
+    resizeImage(f, 600, 0.8, dataUrl => {
+      const c = state.data.candidates.find(x => x.id === id)
+      if (c) { c.image = dataUrl; saveSync() }
+    })
   }
   inp.click()
 }

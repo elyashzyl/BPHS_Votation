@@ -215,6 +215,9 @@ async function loadYear(year) {
   }
   if (!data.settings.clubs) data.settings.clubs = ['English Club', 'Science Club', 'Math Club']
   if (!data.reports) data.reports = []
+  /* Migrate: add filterByGrade to Grade 7-10 Representative */
+  const g710 = data.positions.find(p => p.id === 'pos_g710_rep')
+  if (g710 && !g710.filterByGrade) g710.filterByGrade = true
   state.year = year
   state.data = data
   state.years = await DB.list()
