@@ -13,6 +13,8 @@ function clone(obj) {
 export const DB = {
   ready: false,
   initPromise: null,
+  syncStatus: 'unknown', /* 'cloud' | 'local' | 'error' */
+  syncError: '',
 
   async open() {
     if (this.ready) return
@@ -58,9 +60,10 @@ export const DB = {
     if (this.ready && supabase) {
       try {
         const { data, error } = await supabase.from('elections').select('data').eq('year', year).maybeSingle()
-        if (!error && data) result = data.data
+        if (!error) { result = data ? data.data : null; this.syncStatus = 'cloud'; this.syncError = '' }
+        else { this.syncStatus = 'error'; this.syncError = error.message }
       } catch (e) {
-        console.warn('Supabase get failed.', e)
+        this.syncStatus = 'error'; this.syncError = e.message || String(e)
       }
     }
 
@@ -98,8 +101,10 @@ export const DB = {
           { year, data: payload, updated_at: new Date().toISOString() },
           { onConflict: 'year' }
         )
-        if (!error) saved = true
+        if (!error) { saved = true; this.syncStatus = 'cloud'; this.syncError = '' }
+        else { this.syncStatus = 'error'; this.syncError = error.message }
       } catch (e) {
+        this.syncStatus = 'error'; this.syncError = e.message || String(e)
         console.warn('Supabase save failed.', e)
       }
     }

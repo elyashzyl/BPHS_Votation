@@ -786,6 +786,10 @@ tr:hover td { background: var(--card-bg); }
   border-radius: 6px; letter-spacing: .3px;
   white-space: nowrap; line-height: 1.4;
 }
+.sync-badge { font-size: .65rem; font-weight: 700; padding: 3px 8px; border-radius: 5px; white-space: nowrap; line-height: 1.3; }
+.sync-cloud { background: #059669; color: #fff; }
+.sync-local { background: var(--gray-300); color: var(--text-muted); }
+.sync-error { background: #dc2626; color: #fff; }
 /* Toggle component */
 .toggle-root { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
 .toggle-root.slim { gap: 8px; }
