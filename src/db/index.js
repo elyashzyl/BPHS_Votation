@@ -98,8 +98,7 @@ export const DB = {
     if (this.ready && supabase) {
       try {
         const { error } = await supabase.from('elections').upsert(
-          { year, data: payload, updated_at: new Date().toISOString() },
-          { onConflict: 'year' }
+          { year, data: payload, updated_at: new Date().toISOString() }
         )
         if (!error) { saved = true; this.syncStatus = 'cloud'; this.syncError = '' }
         else { this.syncStatus = 'error'; this.syncError = error.message }
@@ -133,8 +132,15 @@ export const DB = {
   async testConnection() {
     if (!this.ready || !supabase) return { ok: false, error: 'Supabase not configured' }
     try {
-      const { error } = await supabase.from('elections').select('year', { count: 'exact', head: true })
-      if (error) return { ok: false, error: error.message }
+      /* Check table structure */
+      const { error: selErr } = await supabase.from('elections').select('year', { count: 'exact', head: true })
+      if (selErr) return { ok: false, error: 'SELECT: ' + selErr.message }
+      /* Try a write */
+      const testPayload = { year: '_test_', data: { test: true }, updated_at: new Date().toISOString() }
+      const { error: upsertErr } = await supabase.from('elections').upsert(testPayload)
+      if (upsertErr) return { ok: false, error: 'UPSERT: ' + upsertErr.message }
+      /* Clean up test row */
+      await supabase.from('elections').delete().eq('year', '_test_')
       return { ok: true }
     } catch (e) {
       return { ok: false, error: e.message || String(e) }
