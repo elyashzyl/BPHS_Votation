@@ -49,7 +49,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { state, getClubs } from '../store/index.js'
+import { state } from '../store/index.js'
 
 const reportCount = computed(() => state.data?.reports?.length || 0)
 
