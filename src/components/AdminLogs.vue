@@ -34,7 +34,6 @@
         <p class="text-sm text-muted mt-8">Total: <strong>{{ filteredVoters.length }}</strong></p>
       </div>
     </div>
-    <ModalDialog :visible="showDelModal" title="Delete Voter" :message="delMsg" confirmText="Delete" confirmClass="btn-danger" @confirm="confirmDel" @cancel="showDelModal=false" />
 
     <!-- View ballot modal -->
     <div v-if="viewTarget" class="modal-overlay" @click.self="viewTarget=null">
@@ -61,7 +60,6 @@
 <script setup>
 import { ref, computed, watch, reactive } from 'vue'
 import { state, getSettings, getSections, getVoters, getPositions, getAllSections as getAllSecs, saveSync, toggleTheme } from '../store/index.js'
-import ModalDialog from './ModalDialog.vue'
 import Toggle from '../components/base/toggle/toggle.vue'
 import Dropdown from '../components/base/dropdown/dropdown.vue'
 
@@ -82,9 +80,6 @@ const filteredVoters = computed(() => {
   return f
 })
 
-const showDelModal = ref(false)
-const delId = ref(null)
-const delMsg = ref('')
 const selected = reactive(new Set())
 const busyBulk = ref(false)
 const viewTarget = ref(null)
@@ -107,36 +102,23 @@ function toggleAll(checked, items) { checked ? items.forEach(v => selected.add(v
 function bulkDelete() {
   if (!confirm('Delete ' + selected.size + ' selected voter(s) and their votes?')) return
   busyBulk.value = true
-  const voters = state.data.voters.filter(v => selected.has(v.id))
-  voters.forEach(v => {
-    const et = v.electionType || 'sbo'
-    const entry = v.deviceId + ':' + et
-    const idx = state.data.votedDevices.indexOf(entry)
-    if (idx !== -1) state.data.votedDevices.splice(idx, 1)
+  const ids = [...selected]
+  state.data.votedDevices = state.data.votedDevices.filter(d => {
+    const voter = state.data.voters.find(v => selected.has(v.id) && v.deviceId + ':' + (v.electionType || 'sbo') === d)
+    return !voter
   })
-  state.data.voters = state.data.voters.filter(v => !selected.has(v.id))
-  state.data.votes = state.data.votes.filter(v => !selected.has(v.voterId))
+  state.data.voters = state.data.voters.filter(v => !ids.includes(v.id))
+  state.data.votes = state.data.votes.filter(v => !ids.includes(v.voterId))
   selected.clear(); busyBulk.value = false; saveSync()
 }
 
 function promptDel(v) {
-  delId.value = v.id
-  delMsg.value = 'Delete voter "' + v.name + '" (Grade ' + v.grade + ' - ' + v.section + ')? This also removes their votes.'
-  showDelModal.value = true
-}
-
-function confirmDel() {
-  const id = delId.value
-  const voter = state.data.voters.find(x => x.id === id)
-  if (voter) {
-    const et = voter.electionType || 'sbo'
-    const entry = voter.deviceId + ':' + et
-    const idx = state.data.votedDevices.indexOf(entry)
-    if (idx !== -1) state.data.votedDevices.splice(idx, 1)
-  }
+  if (!confirm('Delete "' + v.name + '" (Grade ' + v.grade + ' - ' + v.section + ')?')) return
+  const id = v.id
+  state.data.votedDevices = state.data.votedDevices.filter(d => d !== v.deviceId + ':' + (v.electionType || 'sbo'))
   state.data.voters = state.data.voters.filter(x => x.id !== id)
   state.data.votes = state.data.votes.filter(x => x.voterId !== id)
-  delId.value = null; saveSync(); showDelModal.value = false
+  saveSync()
 }
 
 function _dl(csv, fn) {
