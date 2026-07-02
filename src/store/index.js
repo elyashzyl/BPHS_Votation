@@ -705,10 +705,16 @@ export async function seedTestData() {
     ]}
   ];
 
+  console.log("Available positions:", state.data.positions.map(p => ({ id: p.id, name: p.name })));
+  
   positionCandidates.forEach(({ positionId, candidates }) => {
     const position = state.data.positions.find(p => p.id === positionId);
-    if (!position) return;
+    if (!position) {
+      console.warn("Position not found:", positionId);
+      return;
+    }
 
+    console.log("Adding candidates for position:", position.name, candidates.length);
     candidates.forEach(candidate => {
       state.data.candidates.push({
         id: makeId("cand"),
@@ -722,6 +728,8 @@ export async function seedTestData() {
       });
     });
   });
+
+  console.log("Total candidates seeded:", state.data.candidates.length);
 
   const voterTemplates = [
     {
