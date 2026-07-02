@@ -1,225 +1,525 @@
-<template>
-  <div>
-    <div class="admin-head-actions">
-      <div>
-        <h2>Candidates</h2>
-        <p class="text-sm text-muted" style="margin-top:4px;">Manage candidates for each election position.</p>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <Toggle :model-value="state.isDark" @update:model-value="toggleTheme" slim size="sm" :title="'Toggle theme'" />
-        <span class="badge-year">{{ state.year }}</span>
-      </div>
-    </div>
-    <div class="admin-actions">
-      <button class="btn btn-sm btn-primary" @click="openAdd">+ Add</button>
-      <template v-if="selected.size">
-        <span class="text-sm text-muted" style="margin-left:8px;">{{ selected.size }} selected</span>
-        <button class="btn btn-sm btn-danger" @click="bulkDelete" :disabled="busyBulk">Delete</button>
-      </template>
-    </div>
-    <div class="tabs">
-      <span class="tab" :class="{ active: type==='sbo' }" @click="type='sbo'">SBO</span>
-      <span class="tab" :class="{ active: type==='classroom' }" @click="type='classroom'">Classroom</span>
-      <span class="tab" :class="{ active: type==='club' }" @click="type='club'">Club</span>
-    </div>
-    <div class="form-group" v-if="positions.length">
-      <label>Filter by Position</label>
-      <Dropdown v-model="filterPos" :options="posFilterOpts" searchable />
-    </div>
-    <div v-if="!positions.length" class="card"><p class="text-muted">No positions for this election type.</p></div>
-    <div v-else-if="!filteredCandidates.length" class="card"><p class="text-muted">No candidates{{ filterPos ? ' for this position' : '' }}.</p></div>
-    <div v-else class="cand-list">
-      <div v-for="c in filteredCandidates" :key="c.id" class="cand-row" :class="{ 'row-selected': selected.has(c.id) }">
-        <div class="cand-row-checkbox"><input type="checkbox" :checked="selected.has(c.id)" @change="toggle(c.id)" /></div>
-        <div class="cand-row-photo">
-          <img v-if="c.image" :src="c.image" />
-          <span v-else class="cand-row-photo-placeholder"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4.5" width="15" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 13.5L6 10l2.5 2.5L11 10l3 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        </div>
-        <div class="cand-row-body">
-          <div class="cand-row-field">
-            <label>Name</label>
-            <span>{{ c.name }}</span>
-          </div>
-          <div class="cand-row-field cand-row-field-sm">
-            <label>Position</label>
-            <span>{{ posName(c.positionId) }}</span>
-          </div>
-          <div class="cand-row-field cand-row-field-sm">
-            <label>Gr/Sec</label>
-            <span>Grade {{ c.grade }}{{ c.section ? ' - ' + c.section : '' }}</span>
-          </div>
-          <div class="cand-row-field">
-            <label>Party</label>
-            <span>{{ c.party || '—' }}</span>
-          </div>
-          <div v-if="type==='club'" class="cand-row-field">
-            <label>Club</label>
-            <span>{{ c.club || 'Any' }}</span>
-          </div>
-        </div>
-        <div class="cand-row-actions">
-          <button class="btn btn-sm btn-primary" @click="uploadPhoto(c.id)" title="Upload photo"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4.5" width="15" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 13.5L6 10l2.5 2.5L11 10l3 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button class="btn btn-sm btn-accent" @click="editCand(c)" title="Edit"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5a1.5 1.5 0 012 2L5 13l-3 1 1-3 8.5-8.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>
-          <button class="btn btn-sm btn-danger" @click="delCand(c.id)" title="Delete"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add overlay -->
-    <div v-if="showAddForm" class="modal-overlay" @click.self="showAddForm=false">
-      <div class="modal-box" @click.stop>
-        <div class="modal-box-header"><h3>Add Candidate</h3><button class="modal-box-close" @click="showAddForm=false"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
-        <div class="modal-box-body">
-          <div class="form-group"><label>Position</label>
-            <select v-model="addForm.positionId">
-              <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.name }}</option>
-            </select>
-          </div>
-          <div class="form-group"><label>Name</label><input type="text" v-model="addForm.name" placeholder="Candidate name" /></div>
-          <div class="form-group"><label>Grade</label><select v-model="addForm.grade"><option v-for="g in settings.grades" :key="g" :value="g">Grade {{ g }}</option></select></div>
-          <div v-if="type==='classroom'" class="form-group"><label>Section</label><select v-model="addForm.section"><option value="">Any</option><option v-for="s in sectionsForGrade(addForm.grade)" :key="s" :value="s">{{ s }}</option></select></div>
-          <div class="form-group"><label>Party</label><input type="text" v-model="addForm.party" placeholder="Party (optional)" /></div>
-          <div v-if="type==='club'" class="form-group"><label>Club</label><select v-model="addForm.club"><option value="">Any</option><option v-for="c in clubs" :key="c" :value="c">{{ c }}</option></select></div>
-        </div>
-        <div class="modal-box-footer">
-          <button class="btn btn-sm btn-secondary" @click="showAddForm=false">Close</button>
-          <button class="btn btn-sm btn-primary" @click="saveAdd">Add</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit overlay -->
-    <div v-if="editTarget" class="modal-overlay" @click.self="editTarget=null">
-      <div class="modal-box" @click.stop>
-        <div class="modal-box-header"><h3>Edit Candidate</h3><button class="modal-box-close" @click="editTarget=null"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
-        <div class="modal-box-body">
-          <div class="form-group"><label>Name</label><input type="text" v-model="editForm.name" /></div>
-          <div class="form-group"><label>Grade</label><select v-model="editForm.grade"><option v-for="g in settings.grades" :key="g" :value="g">Grade {{ g }}</option></select></div>
-          <div v-if="type==='classroom'" class="form-group"><label>Section</label><select v-model="editForm.section"><option value="">Any</option><option v-for="s in sectionsForGrade(editForm.grade)" :key="s" :value="s">{{ s }}</option></select></div>
-          <div class="form-group"><label>Party</label><input type="text" v-model="editForm.party" placeholder="Party (optional)" /></div>
-          <div v-if="type==='club'" class="form-group"><label>Club</label><select v-model="editForm.club"><option value="">Any</option><option v-for="c in clubs" :key="c" :value="c">{{ c }}</option></select></div>
-        </div>
-        <div class="modal-box-footer">
-          <button class="btn btn-sm btn-secondary" @click="editTarget=null">Cancel</button>
-          <button class="btn btn-sm btn-primary" @click="saveEdit">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <ModalDialog :visible="showDelModal" title="Delete Candidate" :message="delMsg" confirmText="Delete" confirmClass="btn-danger" @confirm="confirmDel" @cancel="showDelModal=false" />
-  </div>
-</template>
-
 <script setup>
-import { ref, computed, reactive, watch } from 'vue'
-import { state, getPositions, getSettings, getSections, getClubs, saveSync, toggleTheme } from '../store/index.js'
-import ModalDialog from './ModalDialog.vue'
-import Toggle from '../components/base/toggle/toggle.vue'
-import Dropdown from '../components/base/dropdown/dropdown.vue'
+import { computed, reactive, shallowRef, watch } from "vue";
+import { ArchiveRestore, Camera, Edit3, Moon, RotateCcw, Search, Trash2 } from "lucide-vue-next";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  createCandidate,
+  getClubs,
+  getPositions,
+  getSections,
+  getSettings,
+  removeCandidate,
+  removeCandidates,
+  restoreCandidate,
+  setCandidatePhoto,
+  state,
+  toggleTheme,
+  updateCandidate,
+} from "../store/index.js";
+import ModalDialog from "./ModalDialog.vue";
 
-const type = ref(state.candTabType || 'sbo')
-const filterPos = ref('')
+const candidateTypes = [
+  { value: "sbo", label: "SBO" },
+  { value: "classroom", label: "Classroom" },
+  { value: "club", label: "Club" },
+];
 
-const settings = computed(() => getSettings())
-const clubs = computed(() => getClubs())
+const type = shallowRef(state.candTabType || "sbo");
+const filterPos = shallowRef("all");
+const query = shallowRef("");
+const showArchived = shallowRef(false);
+const selected = reactive(new Set());
+const editingId = shallowRef("");
+const deleteTarget = shallowRef(null);
+const showBulkDelete = shallowRef(false);
+const notice = shallowRef("");
+const formError = shallowRef("");
 
-const positions = computed(() => getPositions().filter(p => (p.type || 'sbo') === type.value))
+const form = reactive({
+  positionId: "",
+  name: "",
+  grade: "7",
+  section: "",
+  party: "",
+  club: "",
+});
 
-const posFilterOpts = computed(() => [{ value: '', label: 'All Positions' }, ...positions.value.map(p => ({ value: p.id, label: p.name }))])
+const settings = computed(() => getSettings());
+const clubs = computed(() => getClubs());
+const positions = computed(() =>
+  getPositions().filter((position) => (position.type || "sbo") === type.value && !position.archived),
+);
+const positionFilterOptions = computed(() => [
+  { value: "all", label: "All Positions" },
+  ...positions.value.map((position) => ({ value: position.id, label: position.name })),
+]);
+const selectedFormPosition = computed(() =>
+  getPositions().find((position) => position.id === form.positionId),
+);
+const currentTypeLabel = computed(
+  () => candidateTypes.find((candidateType) => candidateType.value === type.value)?.label || "SBO",
+);
 
 const filteredCandidates = computed(() => {
-  const all = state.data ? state.data.candidates.filter(c => positions.value.some(p => p.id === c.positionId)) : []
-  return filterPos.value ? all.filter(c => c.positionId === filterPos.value) : all
-})
+  const needle = query.value.trim().toLowerCase();
+  const positionIds = new Set(positions.value.map((position) => position.id));
 
-watch(type, v => {
-  state.candTabType = v
-  filterPos.value = ''
-})
+  return (state.data?.candidates || [])
+    .filter((candidate) => positionIds.has(candidate.positionId))
+    .filter((candidate) => showArchived.value || !candidate.archived)
+    .filter((candidate) => filterPos.value === "all" || candidate.positionId === filterPos.value)
+    .filter((candidate) =>
+      !needle ||
+      [candidate.name, candidate.party, candidate.grade, candidate.section, candidate.club]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(needle),
+    )
+    .sort((a, b) => posName(a.positionId).localeCompare(posName(b.positionId)) || a.name.localeCompare(b.name));
+});
 
-const showDelModal = ref(false)
-const delId = ref(null)
-const delMsg = ref('')
-const editTarget = ref(null)
-const editForm = reactive({ name: '', grade: '7', section: '', party: '', club: '' })
-const showAddForm = ref(false)
-const addForm = reactive({ name: '', grade: '7', section: '', party: '', club: '', positionId: '' })
-const selected = reactive(new Set())
-const busyBulk = ref(false)
+watch(type, (value) => {
+  state.candTabType = value;
+  filterPos.value = "all";
+  selected.clear();
+  resetForm();
+});
 
-function toggle(id) { selected.has(id) ? selected.delete(id) : selected.add(id) }
+watch(
+  positions,
+  () => {
+    if (!positions.value.some((position) => position.id === form.positionId)) {
+      form.positionId = positions.value[0]?.id || "";
+    }
+    if (filterPos.value !== "all" && !positions.value.some((position) => position.id === filterPos.value)) {
+      filterPos.value = "all";
+    }
+  },
+  { immediate: true },
+);
 
-function bulkDelete() {
-  if (!confirm('Delete ' + selected.size + ' selected candidate(s)?')) return
-  busyBulk.value = true
-  state.data.candidates = state.data.candidates.filter(c => !selected.has(c.id))
-  selected.clear(); busyBulk.value = false; saveSync()
+function posName(posId) {
+  return getPositions().find((position) => position.id === posId)?.name || "-";
 }
 
-function posName(posId) { return positions.value.find(p => p.id === posId)?.name || '—' }
-
-function sectionsForGrade(g) { return getSections(g) }
-
-function openAdd() {
-  addForm.positionId = filterPos.value || positions.value[0]?.id || ''
-  showAddForm.value = true
+function sectionsForGrade(grade) {
+  return getSections(grade);
 }
 
-function saveAdd() {
-  if (!addForm.positionId || !addForm.name.trim()) return
-  state.data.candidates.push({ id: 'cand_' + Date.now(), positionId: addForm.positionId, name: addForm.name.trim(), grade: addForm.grade, section: addForm.section, party: addForm.party.trim(), club: addForm.club || '', image: '' })
-  saveSync()
-  addForm.name = ''
+function candidateInitial(candidate) {
+  return (candidate.name || "?").charAt(0).toUpperCase();
 }
 
-function editCand(c) {
-  editTarget.value = c
-  editForm.name = c.name
-  editForm.grade = c.grade
-  editForm.section = c.section || ''
-  editForm.party = c.party || ''
-  editForm.club = c.club || ''
+function scopeLabel(candidate) {
+  const parts = [];
+  if (candidate.grade) parts.push(`Grade ${candidate.grade}`);
+  if (candidate.section) parts.push(candidate.section);
+  if (candidate.club) parts.push(candidate.club);
+  return parts.join(" - ") || "All eligible voters";
 }
 
-function saveEdit() {
-  if (!editForm.name.trim() || !editTarget.value) return
-  editTarget.value.name = editForm.name.trim()
-  editTarget.value.grade = editForm.grade
-  editTarget.value.section = editForm.section
-  editTarget.value.party = editForm.party.trim()
-  editTarget.value.club = editForm.club || ''
-  editTarget.value = null
-  saveSync()
+function resetForm() {
+  editingId.value = "";
+  form.positionId = filterPos.value !== "all" ? filterPos.value : positions.value[0]?.id || "";
+  form.name = "";
+  form.grade = settings.value.grades[0] || "7";
+  form.section = "all";
+  form.party = "";
+  form.club = "all";
+  formError.value = "";
+}
+
+function editCandidate(candidate) {
+  editingId.value = candidate.id;
+  form.positionId = candidate.positionId;
+  form.name = candidate.name;
+  form.grade = candidate.grade || settings.value.grades[0] || "7";
+  form.section = candidate.section || "all";
+  form.party = candidate.party || "";
+  form.club = candidate.club || "all";
+  formError.value = "";
+}
+
+async function saveForm() {
+  const payload = {
+    ...form,
+    section: form.section === "all" ? "" : form.section,
+    club: form.club === "all" ? "" : form.club,
+  };
+  const result = await (editingId.value ? updateCandidate(editingId.value, payload) : createCandidate(payload));
+  if (!result.ok) {
+    formError.value = result.error;
+    return;
+  }
+
+  notice.value = editingId.value ? "Candidate updated." : "Candidate added.";
+  resetForm();
 }
 
 function uploadPhoto(id) {
-  const inp = document.createElement('input')
-  inp.type = 'file'; inp.accept = 'image/*'
-  inp.onchange = e => {
-    const f = e.target.files[0]; if (!f) return
-    if (f.size > 10 * 1024 * 1024) { alert('Max 10MB.'); return }
-    const r = new FileReader()
-    r.onload = ev => {
-      const c = state.data.candidates.find(x => x.id === id)
-      if (c) { c.image = ev.target.result; saveSync(); alert('Photo uploaded!') }
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      notice.value = "Photo is too large. Maximum size is 10MB.";
+      return;
     }
-    r.readAsDataURL(f)
-  }
-  inp.click()
+    const reader = new FileReader();
+    reader.onload = async (loadEvent) => {
+      const result = await setCandidatePhoto(id, loadEvent.target.result);
+      notice.value = result.ok ? "Photo updated." : result.error;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
 }
 
-function delCand(id) {
-  const c = state.data.candidates.find(x => x.id === id)
-  if (!c) return
-  delId.value = id
-  delMsg.value = 'Delete "' + c.name + '"?'
-  showDelModal.value = true
+async function confirmDelete() {
+  if (!deleteTarget.value) return;
+
+  const result = await removeCandidate(deleteTarget.value.id);
+  notice.value =
+    result.action === "archived"
+      ? "Candidate archived because they already have votes."
+      : "Candidate deleted.";
+  selected.delete(deleteTarget.value.id);
+  deleteTarget.value = null;
 }
 
-function confirmDel() {
-  state.data.candidates = state.data.candidates.filter(x => x.id !== delId.value)
-  delId.value = null
-  showDelModal.value = false
-  saveSync()
+async function confirmBulkDelete() {
+  const ids = filteredCandidates.value
+    .filter((candidate) => selected.has(candidate.id))
+    .map((candidate) => candidate.id);
+  const result = await removeCandidates(ids);
+  notice.value = `${result.deleted} deleted, ${result.archived} archived.`;
+  selected.clear();
+  showBulkDelete.value = false;
+}
+
+async function restore(id) {
+  await restoreCandidate(id);
+  notice.value = "Candidate restored.";
+}
+
+function toggle(id) {
+  selected.has(id) ? selected.delete(id) : selected.add(id);
+}
+
+function toggleAll(checked) {
+  selected.clear();
+  if (checked) filteredCandidates.value.forEach((candidate) => selected.add(candidate.id));
 }
 </script>
+
+<template>
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold tracking-tight">Candidates</h2>
+        <p class="text-sm text-muted-foreground">
+          Manage candidates by election type, position, and voting scope.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <Badge variant="outline">{{ state.year }}</Badge>
+        <Button variant="outline" size="sm" @click="toggleTheme">
+          <Moon data-icon="inline-start" />
+          Theme
+        </Button>
+      </div>
+    </div>
+
+    <Alert v-if="notice">
+      <ArchiveRestore />
+      <AlertTitle>Saved</AlertTitle>
+      <AlertDescription>{{ notice }}</AlertDescription>
+    </Alert>
+
+    <div class="grid items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <Card class="lg:sticky lg:top-20">
+        <CardHeader>
+          <CardTitle>{{ editingId ? "Edit Candidate" : "Add Candidate" }}</CardTitle>
+          <CardDescription>
+            Candidates inherit their ballot scope from the selected position.
+          </CardDescription>
+        </CardHeader>
+        <CardContent class="flex flex-col gap-4">
+          <Alert v-if="!positions.length">
+            <ArchiveRestore />
+            <AlertTitle>No active positions</AlertTitle>
+            <AlertDescription>Add an active position before creating candidates.</AlertDescription>
+          </Alert>
+
+          <template v-else>
+            <label class="flex flex-col gap-2 text-sm font-medium">
+              Position
+              <Select v-model="form.positionId">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Select position" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem v-for="position in positions" :key="position.id" :value="position.id">
+                      {{ position.name }}
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label class="flex flex-col gap-2 text-sm font-medium">
+              Name
+              <Input v-model="form.name" type="text" placeholder="Candidate name" />
+            </label>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="flex flex-col gap-2 text-sm font-medium">
+                Grade
+                <Select v-model="form.grade">
+                  <SelectTrigger class="w-full">
+                    <SelectValue placeholder="Select grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem v-for="grade in settings.grades" :key="grade" :value="grade">
+                        Grade {{ grade }}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </label>
+
+              <label v-if="selectedFormPosition?.type === 'classroom'" class="flex flex-col gap-2 text-sm font-medium">
+                Section
+                <Select v-model="form.section">
+                  <SelectTrigger class="w-full">
+                    <SelectValue placeholder="Any section" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">Any</SelectItem>
+                      <SelectItem v-for="section in sectionsForGrade(form.grade)" :key="section" :value="section">
+                        {{ section }}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+
+            <label v-if="selectedFormPosition?.type === 'club'" class="flex flex-col gap-2 text-sm font-medium">
+              Club
+              <Select v-model="form.club">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Any club" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">Any</SelectItem>
+                    <SelectItem v-for="club in clubs" :key="club" :value="club">{{ club }}</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label class="flex flex-col gap-2 text-sm font-medium">
+              Party
+              <Input v-model="form.party" type="text" placeholder="Party or slate" />
+            </label>
+
+            <Alert v-if="formError" variant="destructive">
+              <Trash2 />
+              <AlertTitle>Check candidate details</AlertTitle>
+              <AlertDescription>{{ formError }}</AlertDescription>
+            </Alert>
+
+            <div class="flex flex-wrap gap-2">
+              <Button size="sm" @click="saveForm">{{ editingId ? "Save" : "Add" }}</Button>
+              <Button size="sm" variant="outline" @click="resetForm">
+                <RotateCcw data-icon="inline-start" />
+                Clear
+              </Button>
+            </div>
+          </template>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div class="flex flex-col gap-3">
+            <div>
+              <CardTitle>{{ currentTypeLabel }} Candidates</CardTitle>
+              <CardDescription>
+                {{ filteredCandidates.length }} visible candidate{{ filteredCandidates.length === 1 ? "" : "s" }}
+              </CardDescription>
+            </div>
+            <div class="grid gap-2 md:grid-cols-2 2xl:grid-cols-[320px_minmax(180px,1fr)_220px_auto]">
+              <Tabs v-model="type" class="w-full md:w-auto">
+                <TabsList class="grid w-full grid-cols-3">
+                  <TabsTrigger value="sbo">SBO</TabsTrigger>
+                  <TabsTrigger value="classroom">Classroom</TabsTrigger>
+                  <TabsTrigger value="club">Club</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div class="relative">
+                <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input v-model="query" class="w-full pl-10" type="text" placeholder="Search candidates" />
+              </div>
+
+              <Select v-if="positions.length" v-model="filterPos">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="All positions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem v-for="option in positionFilterOptions" :key="option.value" :value="option.value">
+                      {{ option.label }}
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+              <label class="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                <Checkbox
+                  :model-value="showArchived"
+                  @update:model-value="(value) => (showArchived = !!value)"
+                />
+                Archived
+              </label>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent class="flex flex-col gap-3">
+          <div v-if="selected.size" class="flex flex-col gap-2 rounded-lg border border-border bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
+            <span class="text-sm text-muted-foreground">{{ selected.size }} selected</span>
+            <Button size="sm" variant="destructive" @click="showBulkDelete = true">
+              <Trash2 data-icon="inline-start" />
+              Delete or archive
+            </Button>
+          </div>
+
+          <div class="overflow-x-auto rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead class="w-10">
+                    <Checkbox
+                      :model-value="selected.size === filteredCandidates.length && filteredCandidates.length > 0"
+                      @update:model-value="toggleAll"
+                    />
+                  </TableHead>
+                  <TableHead>Candidate</TableHead>
+                  <TableHead>Position</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead>Party</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead class="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow
+                  v-for="candidate in filteredCandidates"
+                  :key="candidate.id"
+                  :data-state="selected.has(candidate.id) ? 'selected' : undefined"
+                >
+                  <TableCell>
+                    <Checkbox
+                      :model-value="selected.has(candidate.id)"
+                      @update:model-value="() => toggle(candidate.id)"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div class="flex items-center gap-3">
+                      <Avatar class="size-9 rounded-lg">
+                        <AvatarImage v-if="candidate.image" :src="candidate.image" :alt="candidate.name" />
+                        <AvatarFallback>{{ candidateInitial(candidate) }}</AvatarFallback>
+                      </Avatar>
+                      <span class="font-medium">{{ candidate.name }}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{{ posName(candidate.positionId) }}</TableCell>
+                  <TableCell>{{ scopeLabel(candidate) }}</TableCell>
+                  <TableCell>{{ candidate.party || "-" }}</TableCell>
+                  <TableCell>
+                    <Badge :variant="candidate.archived ? 'destructive' : 'secondary'">
+                      {{ candidate.archived ? "Archived" : "Active" }}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div class="flex justify-end gap-2">
+                      <Button size="icon-sm" variant="outline" title="Photo" aria-label="Photo" @click="uploadPhoto(candidate.id)">
+                        <Camera />
+                      </Button>
+                      <Button size="icon-sm" variant="outline" title="Edit" aria-label="Edit" @click="editCandidate(candidate)">
+                        <Edit3 />
+                      </Button>
+                      <Button v-if="candidate.archived" size="icon-sm" variant="secondary" title="Restore" aria-label="Restore" @click="restore(candidate.id)">
+                        <ArchiveRestore />
+                      </Button>
+                      <Button v-else size="icon-sm" variant="destructive" title="Delete" aria-label="Delete" @click="deleteTarget = candidate">
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+                <TableRow v-if="!filteredCandidates.length">
+                  <TableCell colspan="7" class="py-8 text-center text-muted-foreground">
+                    No candidates found.
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <ModalDialog
+      :visible="!!deleteTarget"
+      title="Delete Candidate"
+      :message="deleteTarget ? `Delete or archive ${deleteTarget.name}? Candidates with votes are archived to preserve results.` : ''"
+      confirmText="Continue"
+      confirmClass="btn-danger"
+      @confirm="confirmDelete"
+      @cancel="deleteTarget = null"
+    />
+    <ModalDialog
+      :visible="showBulkDelete"
+      title="Delete Candidates"
+      message="Delete candidates without votes and archive candidates with votes?"
+      confirmText="Continue"
+      confirmClass="btn-danger"
+      @confirm="confirmBulkDelete"
+      @cancel="showBulkDelete = false"
+    />
+  </div>
+</template>

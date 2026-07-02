@@ -63,9 +63,9 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { state, toggleTheme, getClubs } from '../store/index.js'
+import { state, toggleTheme, signOutAdmin } from '../store/index.js'
 import { DB } from '../db/index.js'
 import Toggle from '../components/base/toggle/toggle.vue'
 import AdminSidebar from '../components/AdminSidebar.vue'
@@ -80,7 +80,10 @@ import AdminSettings from '../components/AdminSettings.vue'
 const router = useRouter()
 const reportCount = computed(() => state.data?.reports?.length || 0)
 
-function exitAdmin() { state.isAdmin = false; state.adminView = 'dashboard'; sessionStorage.removeItem('sbo_admin'); sessionStorage.removeItem('sbo_adminView'); router.push('/') }
+async function exitAdmin() {
+  await signOutAdmin()
+  router.push('/')
+}
 
 watch(() => state.adminView, (v) => {
   sessionStorage.setItem('sbo_adminView', v)
