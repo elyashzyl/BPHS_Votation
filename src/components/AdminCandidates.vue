@@ -191,12 +191,19 @@ function uploadPhoto(id) {
       notice.value = "Photo is too large. Maximum size is 10MB.";
       return;
     }
-    const reader = new FileReader();
-    reader.onload = async (loadEvent) => {
-      const result = await setCandidatePhoto(id, loadEvent.target.result);
-      notice.value = result.ok ? "Photo updated." : result.error;
-    };
-    reader.readAsDataURL(file);
+    setCandidatePhoto(id, file)
+      .then((result) => {
+        if (!result.ok) {
+          notice.value = result.error;
+          return;
+        }
+        notice.value = result.storage === "supabase"
+          ? "Photo uploaded to Supabase Storage."
+          : "Photo saved locally for demo mode.";
+      })
+      .catch((error) => {
+        notice.value = error.message || "Unable to upload photo.";
+      });
   };
   input.click();
 }

@@ -3,6 +3,7 @@ import { supabase, sbInitialized } from "../supabase.js";
 const DB_NAME = "SBO_Votation";
 const STORE_NAME = "elections";
 const LS_PREFIX = "sbo_";
+const CANDIDATE_PHOTO_BUCKET = "candidate-photos";
 const NORMALIZED_TABLE_SETUP =
   "Missing normalized Supabase tables. Run supabase/migrations/20260702010000_normalize_election_schema.sql in your Supabase SQL editor.";
 const ELECTIONS_TABLE_SETUP =
@@ -14,6 +15,27 @@ function lsKey(year) {
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
+}
+
+function cleanStorageSegment(value) {
+  return String(value || "item")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "item";
+}
+
+function imageExtension(contentType) {
+  const extension = String(contentType || "").split("/")[1]?.toLowerCase() || "jpg";
+  if (extension === "jpeg" || extension === "jpg") return "jpg";
+  if (extension === "png") return "png";
+  if (extension === "webp") return "webp";
+  if (extension === "gif") return "gif";
+  return "jpg";
+}
+
+function candidatePhotoPath(year, candidateId, contentType = "image/jpeg") {
+  return `candidates/${cleanStorageSegment(year)}/${cleanStorageSegment(candidateId)}.${imageExtension(contentType)}`;
 }
 
 function makeBallotId(voter) {
@@ -611,6 +633,48 @@ export const DB = {
         localStorage.removeItem(lsKey(year));
       } catch {}
     }
+  },
+
+  async uploadCandidatePhoto(year, candidateId, file) {
+    if (!this.ready || !supabase || !file || typeof file === "string") {
+      return { ok: false, fallback: true };
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) {
+      return { ok: false, fallback: true };
+    }
+
+    const contentType = file.type || "application/octet-stream";
+    if (!contentType.startsWith("image/")) {
+      return { ok: false, error: "Please upload an image file." };
+    }
+
+    const path = candidatePhotoPath(year, candidateId, contentType);
+    const { error } = await supabase.storage
+      .from(CANDIDATE_PHOTO_BUCKET)
+      .upload(path, file, {
+        cacheControl: "3600",
+        contentType,
+        upsert: true,
+      });
+
+    if (error) {
+      return {
+        ok: false,
+        error: formatSupabaseError("STORAGE UPLOAD", error, true),
+      };
+    }
+
+    const { data } = supabase.storage
+      .from(CANDIDATE_PHOTO_BUCKET)
+      .getPublicUrl(path);
+
+    return {
+      ok: true,
+      path,
+      url: `${data.publicUrl}?v=${Date.now()}`,
+    };
   },
 
   async signInAdmin(email, password) {

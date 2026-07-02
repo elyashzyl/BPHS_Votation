@@ -505,9 +505,34 @@ export async function updateCandidate(id, fields) {
   return { ok: true };
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target.result);
+    reader.onerror = () => reject(new Error("Unable to read the selected image."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function setCandidatePhoto(id, image) {
   const target = state.data?.candidates?.find((candidate) => candidate.id === id);
   if (!target) return { ok: false, error: "Candidate not found." };
+
+  if (image && typeof image !== "string") {
+    const upload = await DB.uploadCandidatePhoto(state.year, id, image);
+    if (upload.ok) {
+      target.image = upload.url;
+      await saveSync();
+      return { ok: true, storage: "supabase" };
+    }
+    if (!upload.fallback) {
+      return { ok: false, error: upload.error || "Unable to upload candidate photo." };
+    }
+    target.image = await readFileAsDataUrl(image);
+    await saveSync();
+    return { ok: true, storage: "local" };
+  }
+
   target.image = image || "";
   await saveSync();
   return { ok: true };
