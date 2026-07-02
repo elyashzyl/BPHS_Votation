@@ -22,48 +22,48 @@
       <span class="tab" :class="{ active: type==='classroom' }" @click="type='classroom'">Classroom</span>
       <span class="tab" :class="{ active: type==='club' }" @click="type='club'">Club</span>
     </div>
-    <p class="text-sm text-muted mb-16">Select a position.</p>
     <div class="form-group" v-if="positions.length">
-      <label>Position</label>
-      <Dropdown v-model="state.candTabPosId" :options="posOpts" searchable />
+      <label>Filter by Position</label>
+      <Dropdown v-model="filterPos" :options="posFilterOpts" searchable />
     </div>
-    <div v-if="!positions.length" class="card"><p class="text-muted">No positions.</p></div>
-    <template v-else>
-      <h3 style="color:var(--blue);font-weight:600;margin-bottom:12px;">{{ (positions.find(p=>p.id===state.candTabPosId)||{}).name }}</h3>
-      <div v-if="!cands(state.candTabPosId).length" class="card"><p class="text-muted">No candidates for this position.</p></div>
-      <div v-else class="cand-list">
-        <div v-for="c in cands(state.candTabPosId)" :key="c.id" class="cand-row" :class="{ 'row-selected': selected.has(c.id) }">
-          <div class="cand-row-checkbox"><input type="checkbox" :checked="selected.has(c.id)" @change="toggle(c.id)" /></div>
-          <div class="cand-row-photo">
-            <img v-if="c.image" :src="c.image" />
-            <span v-else class="cand-row-photo-placeholder"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4.5" width="15" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 13.5L6 10l2.5 2.5L11 10l3 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <div v-if="!positions.length" class="card"><p class="text-muted">No positions for this election type.</p></div>
+    <div v-else-if="!filteredCandidates.length" class="card"><p class="text-muted">No candidates{{ filterPos ? ' for this position' : '' }}.</p></div>
+    <div v-else class="cand-list">
+      <div v-for="c in filteredCandidates" :key="c.id" class="cand-row" :class="{ 'row-selected': selected.has(c.id) }">
+        <div class="cand-row-checkbox"><input type="checkbox" :checked="selected.has(c.id)" @change="toggle(c.id)" /></div>
+        <div class="cand-row-photo">
+          <img v-if="c.image" :src="c.image" />
+          <span v-else class="cand-row-photo-placeholder"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4.5" width="15" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 13.5L6 10l2.5 2.5L11 10l3 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </div>
+        <div class="cand-row-body">
+          <div class="cand-row-field">
+            <label>Name</label>
+            <span>{{ c.name }}</span>
           </div>
-          <div class="cand-row-body">
-            <div class="cand-row-field">
-              <label>Name</label>
-              <span>{{ c.name }}</span>
-            </div>
-            <div class="cand-row-field cand-row-field-sm">
-              <label>Gr/Sec</label>
-              <span>Grade {{ c.grade }}{{ c.section ? ' - ' + c.section : '' }}</span>
-            </div>
-            <div class="cand-row-field">
-              <label>Party</label>
-              <span>{{ c.party || '—' }}</span>
-            </div>
-            <div v-if="type==='club'" class="cand-row-field">
-              <label>Club</label>
-              <span>{{ c.club || 'Any' }}</span>
-            </div>
+          <div class="cand-row-field cand-row-field-sm">
+            <label>Position</label>
+            <span>{{ posName(c.positionId) }}</span>
           </div>
-          <div class="cand-row-actions">
-            <button class="btn btn-sm btn-primary" @click="uploadPhoto(c.id)" title="Upload photo"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4.5" width="15" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 13.5L6 10l2.5 2.5L11 10l3 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-            <button class="btn btn-sm btn-accent" @click="editCand(c)" title="Edit"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5a1.5 1.5 0 012 2L5 13l-3 1 1-3 8.5-8.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>
-            <button class="btn btn-sm btn-danger" @click="delCand(c.id)" title="Delete"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          <div class="cand-row-field cand-row-field-sm">
+            <label>Gr/Sec</label>
+            <span>Grade {{ c.grade }}{{ c.section ? ' - ' + c.section : '' }}</span>
+          </div>
+          <div class="cand-row-field">
+            <label>Party</label>
+            <span>{{ c.party || '—' }}</span>
+          </div>
+          <div v-if="type==='club'" class="cand-row-field">
+            <label>Club</label>
+            <span>{{ c.club || 'Any' }}</span>
           </div>
         </div>
+        <div class="cand-row-actions">
+          <button class="btn btn-sm btn-primary" @click="uploadPhoto(c.id)" title="Upload photo"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4.5" width="15" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 13.5L6 10l2.5 2.5L11 10l3 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="btn btn-sm btn-accent" @click="editCand(c)" title="Edit"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5a1.5 1.5 0 012 2L5 13l-3 1 1-3 8.5-8.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>
+          <button class="btn btn-sm btn-danger" @click="delCand(c.id)" title="Delete"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        </div>
       </div>
-    </template>
+    </div>
 
     <!-- Add overlay -->
     <div v-if="showAddForm" class="modal-overlay" @click.self="showAddForm=false">
@@ -112,24 +112,29 @@
 
 <script setup>
 import { ref, computed, reactive, watch } from 'vue'
-import { state, getPositions, getCandidates, getSettings, getSections, getClubs, saveSync, toggleTheme } from '../store/index.js'
+import { state, getPositions, getSettings, getSections, getClubs, saveSync, toggleTheme } from '../store/index.js'
 import ModalDialog from './ModalDialog.vue'
 import Toggle from '../components/base/toggle/toggle.vue'
 import Dropdown from '../components/base/dropdown/dropdown.vue'
 
 const type = ref(state.candTabType || 'sbo')
+const filterPos = ref('')
 
 const settings = computed(() => getSettings())
 const clubs = computed(() => getClubs())
 
 const positions = computed(() => getPositions().filter(p => (p.type || 'sbo') === type.value))
 
-const posOpts = computed(() => positions.value.map(p => ({ value: p.id, label: p.name })))
+const posFilterOpts = computed(() => [{ value: '', label: 'All Positions' }, ...positions.value.map(p => ({ value: p.id, label: p.name }))])
+
+const filteredCandidates = computed(() => {
+  const all = state.data ? state.data.candidates.filter(c => positions.value.some(p => p.id === c.positionId)) : []
+  return filterPos.value ? all.filter(c => c.positionId === filterPos.value) : all
+})
 
 watch(type, v => {
   state.candTabType = v
-  const ps = getPositions().filter(p => (p.type || 'sbo') === v)
-  if (ps.length) state.candTabPosId = ps[0].id
+  filterPos.value = ''
 })
 
 const showDelModal = ref(false)
@@ -151,12 +156,12 @@ function bulkDelete() {
   selected.clear(); busyBulk.value = false; saveSync()
 }
 
-function cands(posId) { return getCandidates(posId) }
+function posName(posId) { return positions.value.find(p => p.id === posId)?.name || '—' }
 
 function sectionsForGrade(g) { return getSections(g) }
 
 function openAdd() {
-  addForm.positionId = state.candTabPosId || (positions.value[0]?.id || '')
+  addForm.positionId = filterPos.value || positions.value[0]?.id || ''
   showAddForm.value = true
 }
 
