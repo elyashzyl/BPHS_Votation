@@ -215,10 +215,12 @@ async function loadYear(year) {
   }
   if (!data.settings.clubs) data.settings.clubs = ['English Club', 'Science Club', 'Math Club']
   if (!data.reports) data.reports = []
-  /* Migrate: add filterByGrade only to positions with both "Grade" and "Representative" (not Chinese Rep) */
+  /* Migrate: filterByGrade only for grade-specific rep; remove from all others */
   data.positions.forEach(p => {
-    if (p.type === 'sbo' && /grade/i.test(p.name) && /representative/i.test(p.name) && !p.filterByGrade) {
+    if (p.type === 'sbo' && /grade/i.test(p.name) && /representative/i.test(p.name)) {
       p.filterByGrade = true
+    } else {
+      delete p.filterByGrade
     }
   })
   state.year = year

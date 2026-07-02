@@ -52,8 +52,8 @@ async function submit() {
       d.votes.push({ id: 'vt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), voterId: vid, candidateId: cid, positionId: p.id, timestamp: new Date().toISOString() })
     })
   })
-  await saveSync()
   router.push('/vote/success')
+  saveSync()
 }
 
 function goBack() { router.push('/vote/booth') }
