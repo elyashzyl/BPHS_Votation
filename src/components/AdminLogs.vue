@@ -42,7 +42,7 @@
         <div class="modal-box-header"><h3>Ballot — {{ viewTarget.name }}</h3><button class="modal-box-close" @click="viewTarget=null"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
         <div class="modal-box-body">
           <p class="text-sm text-muted mb-16">Grade {{ viewTarget.grade }} - {{ viewTarget.section }} &middot; {{ viewTarget.electionType === 'classroom' ? 'Classroom' : viewTarget.electionType === 'club' ? 'Club' : 'SBO' }} &middot; {{ new Date(viewTarget.timestamp).toLocaleString() }}</p>
-          <div v-for="pos in positions" :key="pos.id" class="review-item" style="border-bottom:1px solid var(--gray-200);padding:8px 0;">
+          <div v-for="pos in ballotPositions" :key="pos.id" class="review-item" style="border-bottom:1px solid var(--gray-200);padding:8px 0;">
             <span class="pos" style="font-weight:600;font-size:.85rem;">{{ pos.name }}</span>
             <span class="cand" style="font-size:.82rem;">
               <template v-if="ballotVotes(pos.id).length">{{ ballotVotes(pos.id).join(', ') }}</template>
@@ -88,6 +88,11 @@ const delMsg = ref('')
 const selected = reactive(new Set())
 const busyBulk = ref(false)
 const viewTarget = ref(null)
+const ballotPositions = computed(() => {
+  if (!viewTarget.value) return []
+  const et = viewTarget.value.electionType || 'sbo'
+  return getPositions().filter(p => (p.type || 'sbo') === et).sort((a, b) => a.order - b.order)
+})
 
 function viewVotes(voter) { viewTarget.value = voter }
 function ballotVotes(posId) {
