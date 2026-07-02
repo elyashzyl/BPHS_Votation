@@ -215,9 +215,9 @@ async function loadYear(year) {
   }
   if (!data.settings.clubs) data.settings.clubs = ['English Club', 'Science Club', 'Math Club']
   if (!data.reports) data.reports = []
-  /* Migrate: add filterByGrade to any SBO position with "Representative" in its name */
+  /* Migrate: add filterByGrade only to positions with both "Grade" and "Representative" (not Chinese Rep) */
   data.positions.forEach(p => {
-    if (p.type === 'sbo' && /representative/i.test(p.name) && !p.filterByGrade) {
+    if (p.type === 'sbo' && /grade/i.test(p.name) && /representative/i.test(p.name) && !p.filterByGrade) {
       p.filterByGrade = true
     }
   })
