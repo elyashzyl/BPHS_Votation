@@ -22,6 +22,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { Device } from '../utils/device.js'
 import { state, getPositions, getAllCandidates, saveSync, deviceVoted } from '../store/index.js'
 
 const router = useRouter()
