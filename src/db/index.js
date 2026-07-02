@@ -130,6 +130,17 @@ export const DB = {
     }
   },
 
+  async testConnection() {
+    if (!this.ready || !supabase) return { ok: false, error: 'Supabase not configured' }
+    try {
+      const { error } = await supabase.from('elections').select('year', { count: 'exact', head: true })
+      if (error) return { ok: false, error: error.message }
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) }
+    }
+  },
+
   async list() {
     let years = []
 

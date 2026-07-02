@@ -81,6 +81,13 @@
       </div>
 
       <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button class="btn btn-sm btn-accent" @click="testConn" :disabled="testing">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="margin-right:4px;vertical-align:middle;"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          {{ testing ? 'Testing...' : 'Test Cloud Connection' }}
+        </button>
+        <span v-if="connMsg" class="text-sm" :style="{color: connOk ? 'var(--success)' : 'var(--red)'}" style="align-self:center;">{{ connMsg }}</span>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px;">
         <button class="btn btn-primary" @click="save">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right:4px;vertical-align:middle;"><path d="M13 5.5V13a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1h7.5L13 5.5z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5 14V9h6v5M10 2v3H6V2" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
           Save Settings
@@ -110,6 +117,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { state, saveSync, deleteAndSwitch, switchYear, createNewYear, toggleTheme } from '../store/index.js'
+import { DB } from '../db/index.js'
 import ModalDialog from './ModalDialog.vue'
 import Toggle from '../components/base/toggle/toggle.vue'
 import Dropdown from '../components/base/dropdown/dropdown.vue'
@@ -126,6 +134,17 @@ watch(selYear, v => { if (v && v !== state.year) switchYear(v) })
 
 const showNewYearModal = ref(false)
 const showSaveModal = ref(false)
+const testing = ref(false)
+const connMsg = ref('')
+const connOk = ref(false)
+
+async function testConn() {
+  testing.value = true; connMsg.value = ''
+  const r = await DB.testConnection()
+  if (r.ok) { connMsg.value = 'Connected to Supabase ☁'; connOk.value = true }
+  else { connMsg.value = r.error; connOk.value = false }
+  testing.value = false
+}
 
 async function createYr() {
   showNewYearModal.value = true
