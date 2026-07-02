@@ -107,6 +107,13 @@ function toggleAll(checked, items) { checked ? items.forEach(v => selected.add(v
 function bulkDelete() {
   if (!confirm('Delete ' + selected.size + ' selected voter(s) and their votes?')) return
   busyBulk.value = true
+  const voters = state.data.voters.filter(v => selected.has(v.id))
+  voters.forEach(v => {
+    const et = v.electionType || 'sbo'
+    const entry = v.deviceId + ':' + et
+    const idx = state.data.votedDevices.indexOf(entry)
+    if (idx !== -1) state.data.votedDevices.splice(idx, 1)
+  })
   state.data.voters = state.data.voters.filter(v => !selected.has(v.id))
   state.data.votes = state.data.votes.filter(v => !selected.has(v.voterId))
   selected.clear(); busyBulk.value = false; saveSync()
@@ -121,15 +128,15 @@ function promptDel(v) {
 function confirmDel() {
   const id = delId.value
   const voter = state.data.voters.find(x => x.id === id)
+  if (voter) {
+    const et = voter.electionType || 'sbo'
+    const entry = voter.deviceId + ':' + et
+    const idx = state.data.votedDevices.indexOf(entry)
+    if (idx !== -1) state.data.votedDevices.splice(idx, 1)
+  }
   state.data.voters = state.data.voters.filter(x => x.id !== id)
   state.data.votes = state.data.votes.filter(x => x.voterId !== id)
-  if (voter) {
-    const prefix = voter.deviceId + ':'
-    state.data.votedDevices = state.data.votedDevices.filter(d => !d.startsWith(prefix) || state.data.voters.some(v => v.deviceId === voter.deviceId))
-  }
-  delId.value = null
-  saveSync()
-  showDelModal.value = false
+  delId.value = null; saveSync(); showDelModal.value = false
 }
 
 function _dl(csv, fn) {
