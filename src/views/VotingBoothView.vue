@@ -5,7 +5,7 @@
         <div class="voter-avatar">{{ (state.voter.name||'?').charAt(0).toUpperCase() }}</div>
         <div><strong>{{ state.voter.name }}</strong> <span class="text-muted">· Grade {{ state.voter.grade }} - {{ state.voter.section }}</span></div>
       </div>
-      <button class="btn btn-sm btn-outline" @click="$router.push('/')">Cancel & Exit</button>
+      <button class="btn btn-sm btn-outline" @click="clearDraft(); $router.push('/')">Cancel & Exit</button>
     </div>
     <div style="margin-bottom:16px;">
       <span class="badge" :class="state.electionType==='classroom'?'badge-success':state.electionType==='club'?'badge-club':'badge-warning'">{{ state.electionType==='classroom'?'Classroom Election':state.electionType==='club'?'Club Election':'SBO Election' }}</span>
@@ -36,8 +36,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Device } from '../utils/device.js'
 import { state, getPositions, getCandidates, getAllCandidates } from '../store/index.js'
 
 const router = useRouter()
@@ -46,6 +47,26 @@ const positions = computed(() =>
   getPositions().filter(p => (p.type || 'sbo') === type.value).sort((a, b) => a.order - b.order)
 )
 const allCandidates = computed(() => getAllCandidates())
+
+const draftKey = 'sbo_draft_' + Device.getId() + '_' + state.electionType
+
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem(draftKey)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      state.selectedVotes = { ...state.selectedVotes, ...parsed }
+    }
+  } catch {}
+})
+
+watch(() => state.selectedVotes, (v) => {
+  try { localStorage.setItem(draftKey, JSON.stringify(v)) } catch {}
+}, { deep: true })
+
+function clearDraft() {
+  try { localStorage.removeItem(draftKey) } catch {}
+}
 
 function cands(posId) {
   const all = getCandidates(posId)
