@@ -13,7 +13,7 @@ export function freshData() {
       { id: 'pos_pro', name: 'P.R.O.', order: 6, maxVote: 1, type: 'sbo' },
       { id: 'pos_male_sgt', name: 'Male Sergeant at Arms', order: 7, maxVote: 1, type: 'sbo' },
       { id: 'pos_female_sgt', name: 'Female Sergeant at Arms', order: 8, maxVote: 1, type: 'sbo' },
-      { id: 'pos_g710_rep', name: 'Grade 7-10 Representative', order: 9, maxVote: 2, type: 'sbo' },
+      { id: 'pos_g710_rep', name: 'Grade 7-10 Representative', order: 9, maxVote: 2, type: 'sbo', filterByGrade: true },
       { id: 'pos_chinese_rep', name: 'Chinese Representative', order: 10, maxVote: 1, type: 'sbo' },
     ],
     candidates: [],

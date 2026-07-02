@@ -57,6 +57,7 @@
           <div class="form-group"><label>Type</label><select v-model="editForm.type"><option value="sbo">SBO</option><option value="classroom">Classroom</option><option value="club">Club</option></select></div>
           <div class="form-group"><label>Order</label><input type="number" v-model="editForm.order" /></div>
           <div class="form-group"><label>Max Vote</label><input type="number" v-model="editForm.maxVote" /></div>
+          <div class="form-group"><label class="checkbox-label"><input type="checkbox" v-model="editForm.filterByGrade" /> Filter candidates by voter's grade</label></div>
         </div>
         <div class="modal-box-footer">
           <button class="btn btn-sm btn-secondary" @click="editTarget=null">Cancel</button>
@@ -74,6 +75,7 @@
           <div class="form-group"><label>Type</label><select v-model="addForm.type"><option value="sbo">SBO</option><option value="classroom">Classroom</option><option value="club">Club</option></select></div>
           <div class="form-group"><label>Order</label><input type="number" v-model="addForm.order" /></div>
           <div class="form-group"><label>Max Vote</label><input type="number" v-model="addForm.maxVote" /></div>
+          <div class="form-group"><label class="checkbox-label"><input type="checkbox" v-model="addForm.filterByGrade" /> Filter candidates by voter's grade</label></div>
         </div>
         <div class="modal-box-footer">
           <button class="btn btn-sm btn-secondary" @click="showAddForm=false">Cancel</button>
@@ -120,9 +122,9 @@ const delMsg = ref('')
 const selected = reactive(new Set())
 const busyBulk = ref(false)
 const editTarget = ref(null)
-const editForm = reactive({ name: '', type: 'sbo', order: 1, maxVote: 1 })
+const editForm = reactive({ name: '', type: 'sbo', order: 1, maxVote: 1, filterByGrade: false })
 const showAddForm = ref(false)
-const addForm = reactive({ name: '', type: 'sbo', order: 1, maxVote: 1 })
+const addForm = reactive({ name: '', type: 'sbo', order: 1, maxVote: 1, filterByGrade: false })
 const addInputRef = ref(null)
 const showCopyModal = ref(false)
 const copyTargetYear = ref('')
@@ -165,6 +167,7 @@ function openAdd() {
   addForm.name = ''
   addForm.type = posType.value
   addForm.maxVote = 1
+  addForm.filterByGrade = false
   const maxOrder = state.data.positions.reduce((m, p) => Math.max(m, p.order), 0)
   addForm.order = maxOrder + 1
   showAddForm.value = true
@@ -174,7 +177,7 @@ function openAdd() {
 function saveAdd() {
   if (!addForm.name.trim()) return
   const d = state.data
-  d.positions.push({ id: 'pos_' + Date.now(), name: addForm.name.trim(), type: addForm.type, order: Number(addForm.order) || 1, maxVote: Number(addForm.maxVote) || 1 })
+  d.positions.push({ id: 'pos_' + Date.now(), name: addForm.name.trim(), type: addForm.type, order: Number(addForm.order) || 1, maxVote: Number(addForm.maxVote) || 1, filterByGrade: addForm.filterByGrade })
   saveSync()
   showAddForm.value = false
 }
@@ -185,6 +188,7 @@ function editPos(pos) {
   editForm.type = pos.type || 'sbo'
   editForm.order = pos.order
   editForm.maxVote = pos.maxVote
+  editForm.filterByGrade = !!pos.filterByGrade
 }
 
 function saveEdit() {
@@ -193,6 +197,7 @@ function saveEdit() {
   editTarget.value.type = editForm.type
   editTarget.value.order = Number(editForm.order) || 1
   editTarget.value.maxVote = Number(editForm.maxVote) || 1
+  editTarget.value.filterByGrade = editForm.filterByGrade
   editTarget.value = null
   saveSync()
 }

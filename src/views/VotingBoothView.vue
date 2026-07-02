@@ -55,6 +55,10 @@ function cands(posId) {
   if (type.value === 'club') {
     return all.filter(c => !c.club || c.club === state.voter.club)
   }
+  const pos = positions.value.find(p => p.id === posId)
+  if (pos && pos.filterByGrade) {
+    return all.filter(c => !c.grade || c.grade === state.voter.grade)
+  }
   return all
 }
 function isSel(candId, posId) { return (state.selectedVotes[posId] || []).includes(candId) }
