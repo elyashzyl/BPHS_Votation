@@ -192,7 +192,7 @@ function saveEdit() {
   saveSync()
 }
 
-function resizeImage(file, maxW, maxQ, cb) {
+function resizeImage(file, maxW, maxQ, cb, fb) {
   const r = new FileReader()
   r.onload = ev => {
     const img = new Image()
@@ -204,6 +204,7 @@ function resizeImage(file, maxW, maxQ, cb) {
       const x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h)
       cb(c.toDataURL('image/jpeg', maxQ))
     }
+    img.onerror = () => { if (fb) fb() }
     img.src = ev.target.result
   }
   r.readAsDataURL(file)
@@ -215,10 +216,27 @@ function uploadPhoto(id) {
   inp.onchange = e => {
     const f = e.target.files[0]; if (!f) return
     if (f.size > 10 * 1024 * 1024) { alert('Max 10MB.'); return }
-    resizeImage(f, 600, 0.8, dataUrl => {
-      const c = state.data.candidates.find(x => x.id === id)
-      if (c) { c.image = dataUrl; saveSync() }
-    })
+    const fr = new FileReader()
+    fr.onload = ev => {
+      /* Try to resize; if the image can't be decoded, store the original */
+      const img = new Image()
+      img.onload = () => {
+        let w = img.width, h = img.height
+        if (w > 600) { h = h * 600 / w; w = 600 }
+        if (h > 600) { w = w * 600 / h; h = 600 }
+        const cvs = document.createElement('canvas'); cvs.width = w; cvs.height = h
+        cvs.getContext('2d').drawImage(img, 0, 0, w, h)
+        const d = state.data.candidates.find(x => x.id === id)
+        if (d) { d.image = cvs.toDataURL('image/jpeg', 0.8); saveSync() }
+      }
+      img.onerror = () => {
+        /* Fallback: store original data URL */
+        const d = state.data.candidates.find(x => x.id === id)
+        if (d) { d.image = ev.target.result; saveSync() }
+      }
+      img.src = ev.target.result
+    }
+    fr.readAsDataURL(f)
   }
   inp.click()
 }
