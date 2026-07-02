@@ -197,7 +197,7 @@ function uploadPhoto(id) {
   inp.type = 'file'; inp.accept = 'image/*'
   inp.onchange = e => {
     const f = e.target.files[0]; if (!f) return
-    if (f.size > 2 * 1024 * 1024) { alert('Max 2MB.'); return }
+    if (f.size > 10 * 1024 * 1024) { alert('Max 10MB.'); return }
     const r = new FileReader()
     r.onload = ev => { const c = state.data.candidates.find(x => x.id === id); if (c) { c.image = ev.target.result; saveSync() } }
     r.readAsDataURL(f)
