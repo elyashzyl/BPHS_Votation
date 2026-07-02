@@ -10,7 +10,7 @@
 
       <div v-if="devVoted" class="login-alert">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;"><path d="M8 2a6 6 0 100 12A6 6 0 008 2z" stroke="currentColor" stroke-width="1.5"/><path d="M8 5.5v3M8 10.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        You have already voted in this election on this device.
+        This device has reached the maximum of 3 votes.
         <button class="btn btn-primary" style="margin-top:10px;" @click="$router.push('/')">Back to Home</button>
       </div>
 

@@ -191,13 +191,15 @@ export function editReport(id, fields) {
 
 export function deviceVoted() {
   if (!state.data) return false
-  const key = Device.getId() + ':' + state.electionType
-  return state.data.votedDevices.includes(key)
+  const prefix = Device.getId() + ':'
+  const count = state.data.votedDevices.filter(d => d.startsWith(prefix)).length
+  return count >= 3
 }
 
 export function deviceVotedAny() {
   if (!state.data) return false
-  return state.data.votedDevices.some(d => d.startsWith(Device.getId() + ':'))
+  const prefix = Device.getId() + ':'
+  return state.data.votedDevices.filter(d => d.startsWith(prefix)).length >= 3
 }
 
 export async function saveSync() {

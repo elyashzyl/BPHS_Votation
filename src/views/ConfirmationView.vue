@@ -38,7 +38,7 @@ function selected(posId) {
 }
 
 async function submit() {
-  if (deviceVoted()) { alert('You already voted in this election.'); router.push('/'); return }
+  if (deviceVoted()) { alert('This device has reached the maximum of 3 votes.'); router.push('/'); return }
   const v = state.voter
   const d = state.data
   const et = state.electionType
