@@ -21,9 +21,10 @@ export const DB = {
     this.initPromise = (async () => {
       if (sbInitialized && supabase) {
         this.ready = true
-        return
+      } else {
+        console.warn('Supabase not configured, using local storage fallback.')
       }
-      console.warn('Supabase not configured, using local storage fallback.')
+      /* Always initialize IndexedDB as fallback */
       await this._openIDB()
     })()
 
@@ -51,21 +52,22 @@ export const DB = {
   },
 
   async get(year) {
-    /* Supabase */
+    let result = null
+
+    /* Try Supabase first */
     if (this.ready && supabase) {
       try {
         const { data, error } = await supabase.from('elections').select('data').eq('year', year).maybeSingle()
-        if (error) throw error
-        if (data) return data.data
+        if (!error && data) result = data.data
       } catch (e) {
-        console.warn('Supabase get failed, falling back.', e)
+        console.warn('Supabase get failed.', e)
       }
     }
 
-    /* Fallback: IndexedDB */
-    if (this._idbReady) {
+    /* Fallback: IndexedDB (if Supabase returned nothing or failed) */
+    if (!result && this._idbReady) {
       try {
-        return await new Promise((resolve, reject) => {
+        result = await new Promise((resolve, reject) => {
           const tx = this._idb.transaction(STORE_NAME, 'readonly')
           const r = tx.objectStore(STORE_NAME).get(year)
           r.onsuccess = () => resolve(r.result || null)
@@ -75,33 +77,34 @@ export const DB = {
     }
 
     /* Last fallback: localStorage */
-    if (this._fallback) {
+    if (!result && this._fallback) {
       try {
         const raw = localStorage.getItem(lsKey(year))
-        return raw ? JSON.parse(raw) : null
+        result = raw ? JSON.parse(raw) : null
       } catch {}
     }
-    return null
+
+    return result
   },
 
   async save(year, data) {
     const payload = clone(data)
+    let saved = false
 
-    /* Supabase */
+    /* Try Supabase first */
     if (this.ready && supabase) {
       try {
         const { error } = await supabase.from('elections').upsert(
           { year, data: payload, updated_at: new Date().toISOString() },
           { onConflict: 'year' }
         )
-        if (error) throw error
-        return
+        if (!error) saved = true
       } catch (e) {
-        console.warn('Supabase save failed, falling back.', e)
+        console.warn('Supabase save failed.', e)
       }
     }
 
-    /* Fallback: IndexedDB */
+    /* Always save to IndexedDB as local cache */
     if (this._idbReady) {
       try {
         await new Promise((resolve, reject) => {
@@ -110,12 +113,12 @@ export const DB = {
           tx.oncomplete = () => resolve()
           tx.onerror = e => reject(e.target.error)
         })
-        return
+        saved = true
       } catch {}
     }
 
     /* Last fallback: localStorage */
-    if (this._fallback) {
+    if (!saved && this._fallback) {
       try {
         localStorage.setItem(lsKey(year), JSON.stringify(payload))
       } catch (e) { console.error('localStorage save failed:', e) }
@@ -123,51 +126,54 @@ export const DB = {
   },
 
   async list() {
-    /* Supabase */
+    let years = []
+
+    /* Try Supabase first */
     if (this.ready && supabase) {
       try {
         const { data, error } = await supabase.from('elections').select('year').order('year', { ascending: true })
-        if (error) throw error
-        return (data || []).map(d => d.year).sort()
+        if (!error) years = (data || []).map(d => d.year)
       } catch (e) {
-        console.warn('Supabase list failed, falling back.', e)
+        console.warn('Supabase list failed.', e)
       }
     }
 
     /* Fallback: IndexedDB */
-    if (this._idbReady) {
+    if (!years.length && this._idbReady) {
       try {
-        return await new Promise((resolve, reject) => {
+        years = await new Promise((resolve, reject) => {
           const tx = this._idb.transaction(STORE_NAME, 'readonly')
           const r = tx.objectStore(STORE_NAME).getAllKeys()
-          r.onsuccess = () => resolve(r.result.map(String).sort())
+          r.onsuccess = () => resolve(r.result.map(String))
           r.onerror = e => reject(e.target.error)
         })
       } catch {}
     }
 
     /* Last fallback: localStorage */
-    if (this._fallback) {
+    if (!years.length && this._fallback) {
       try {
-        return Object.keys(localStorage).filter(k => k.startsWith(LS_PREFIX)).map(k => k.slice(LS_PREFIX.length)).sort()
+        years = Object.keys(localStorage).filter(k => k.startsWith(LS_PREFIX)).map(k => k.slice(LS_PREFIX.length))
       } catch {}
     }
-    return []
+
+    return years.sort()
   },
 
   async remove(year) {
-    /* Supabase */
+    let removed = false
+
+    /* Try Supabase first */
     if (this.ready && supabase) {
       try {
         const { error } = await supabase.from('elections').delete().eq('year', year)
-        if (error) throw error
-        return
+        if (!error) removed = true
       } catch (e) {
-        console.warn('Supabase remove failed, falling back.', e)
+        console.warn('Supabase remove failed.', e)
       }
     }
 
-    /* Fallback: IndexedDB */
+    /* Also remove from IndexedDB */
     if (this._idbReady) {
       try {
         await new Promise((resolve, reject) => {
@@ -176,13 +182,13 @@ export const DB = {
           tx.oncomplete = () => resolve()
           tx.onerror = e => reject(e.target.error)
         })
-        return
+        removed = true
       } catch {}
     }
 
-    /* Last fallback: localStorage */
+    /* Also remove from localStorage */
     if (this._fallback) {
-      try { localStorage.removeItem(lsKey(year)) } catch {}
+      try { localStorage.removeItem(lsKey(year)); removed = true } catch {}
     }
   }
 }

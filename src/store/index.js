@@ -228,13 +228,22 @@ async function loadYear(year) {
 }
 
 export async function initApp() {
-  await DB.open()
-  state.years = await DB.list()
-  const target = state.years.includes(state.year) ? state.year : (state.years[state.years.length - 1] || state.year)
-  await loadYear(target)
-  if (sessionStorage.getItem('sbo_admin')) {
-    state.isAdmin = true
-    state.adminView = sessionStorage.getItem('sbo_adminView') || 'dashboard'
+  try {
+    await DB.open()
+    state.years = await DB.list()
+    const target = state.years.includes(state.year) ? state.year : (state.years[state.years.length - 1] || state.year)
+    await loadYear(target)
+    if (sessionStorage.getItem('sbo_admin')) {
+      state.isAdmin = true
+      state.adminView = sessionStorage.getItem('sbo_adminView') || 'dashboard'
+    }
+  } catch (e) {
+    console.error('initApp failed:', e)
+    /* If no data loaded, create fresh data so the UI isn't blank */
+    if (!state.data) {
+      state.data = freshData()
+      state.year = String(new Date().getFullYear())
+    }
   }
   state.loading = false
 }
