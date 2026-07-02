@@ -662,39 +662,39 @@ export async function seedTestData() {
   state.data.reports = [];
 
   const positionCandidates = [
-    { positionId: "pos_sbo_president", candidates: [
+    { positionName: "SBO President", candidates: [
       { name: "Bamboo Santiago", party: "ASPIRANTS" },
       { name: "Franchesca Cruz", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_vp", candidates: [
+    { positionName: "Vice President", candidates: [
       { name: "Mhonica Espanillo", party: "ASPIRANTS" },
       { name: "Alessandra Tirona", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_secretary", candidates: [
+    { positionName: "Secretary", candidates: [
       { name: "Allison Kiangan", party: "ASPIRANTS" },
       { name: "Elaixiah Samson", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_treasurer", candidates: [
+    { positionName: "Treasurer", candidates: [
       { name: "Rachenne Lestino", party: "ASPIRANTS" },
       { name: "Dianessa Canillas", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_auditor", candidates: [
+    { positionName: "Auditor", candidates: [
       { name: "Ann Rhea Abance", party: "ASPIRANTS" },
       { name: "Danielle Ordinario", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_pro", candidates: [
+    { positionName: "P.R.O.", candidates: [
       { name: "Gianna Ayudoc", party: "ASPIRANTS" },
       { name: "Shaun Delos Santos", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_male_sgt", candidates: [
+    { positionName: "Male Sergeant at Arms", candidates: [
       { name: "Joaquin Cabrera", party: "ASPIRANTS" },
       { name: "Dominic Pascual", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_female_sgt", candidates: [
+    { positionName: "Female Sergeant at Arms", candidates: [
       { name: "Rhea Saggot", party: "ASPIRANTS" },
       { name: "Antonia Malla", party: "AURORA" }
     ]},
-    { positionId: "pos_sbo_g710_rep", candidates: [
+    { positionName: "Grade 7-10 Representative", candidates: [
       { name: "Amber Santos", party: "ASPIRANTS", grade: "7" },
       { name: "Phoebe Bacoco", party: "AURORA", grade: "7" },
       { name: "Yana Macabeo", party: "ASPIRANTS", grade: "8" },
@@ -704,19 +704,18 @@ export async function seedTestData() {
       { name: "Princess Santos", party: "ASPIRANTS", grade: "10" },
       { name: "Rhiann Dagdagan", party: "AURORA", grade: "10" }
     ]},
-    { positionId: "pos_sbo_chinese_rep", candidates: [
+    { positionName: "Chinese Representative", candidates: [
       { name: "Austin Correos", party: "ASPIRANTS" },
       { name: "Angelynna Weng", party: "AURORA" }
     ]}
   ];
 
   console.log("Available positions:", state.data.positions.map(p => ({ id: p.id, name: p.name })));
-  console.log("Position IDs:", state.data.positions.map(p => p.id));
   
-  positionCandidates.forEach(({ positionId, candidates }) => {
-    const position = state.data.positions.find(p => p.id === positionId);
+  positionCandidates.forEach(({ positionName, candidates }) => {
+    const position = state.data.positions.find(p => p.name === positionName);
     if (!position) {
-      console.warn("Position not found:", positionId);
+      console.warn("Position not found:", positionName);
       return;
     }
 
@@ -724,7 +723,7 @@ export async function seedTestData() {
     candidates.forEach(candidate => {
       state.data.candidates.push({
         id: makeId("cand"),
-        positionId,
+        positionId: position.id,
         name: candidate.name,
         party: candidate.party,
         grade: candidate.grade || "",
