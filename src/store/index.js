@@ -648,6 +648,7 @@ export async function seedTestData() {
   const settings = state.data.settings;
   const grades = settings.grades?.length ? settings.grades : ["7"];
   const clubs = settings.clubs?.length ? settings.clubs : ["General Club"];
+  const positions = getPositions();
 
   state.data.candidates = [];
   state.data.voters = [];
