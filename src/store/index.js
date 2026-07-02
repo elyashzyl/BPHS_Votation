@@ -648,7 +648,12 @@ export async function seedTestData() {
   const settings = state.data.settings;
   const grades = settings.grades?.length ? settings.grades : ["7"];
   const clubs = settings.clubs?.length ? settings.clubs : ["General Club"];
-  const positions = getPositions();
+
+  // Ensure positions exist
+  if (!state.data.positions || state.data.positions.length === 0) {
+    state.data.positions = defaultPositions();
+    console.log("Created default positions");
+  }
 
   state.data.candidates = [];
   state.data.voters = [];
@@ -725,6 +730,8 @@ export async function seedTestData() {
         section: "",
         club: "",
         image: "",
+        archived: false,
+        archivedAt: "",
       });
     });
   });
