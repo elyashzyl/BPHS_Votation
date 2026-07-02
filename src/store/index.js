@@ -711,6 +711,7 @@ export async function seedTestData() {
   ];
 
   console.log("Available positions:", state.data.positions.map(p => ({ id: p.id, name: p.name })));
+  console.log("Position IDs:", state.data.positions.map(p => p.id));
   
   positionCandidates.forEach(({ positionId, candidates }) => {
     const position = state.data.positions.find(p => p.id === positionId);
