@@ -579,7 +579,7 @@ export async function submitReport(name, message) {
   await saveSync();
 }
 
-export function followUpReport(id, message) {
+export async function followUpReport(id, message) {
   const r = state.data?.reports?.find((x) => x.id === id);
   if (r) {
     r.followUps = r.followUps || [];
@@ -587,39 +587,39 @@ export function followUpReport(id, message) {
       message: message.trim(),
       timestamp: new Date().toISOString(),
     });
-    saveSync();
+    await saveSync();
   }
 }
 
-export function resolveReport(id) {
+export async function resolveReport(id) {
   const r = state.data?.reports?.find((x) => x.id === id);
   if (r) {
     r.resolved = !r.resolved;
-    if (state.data.reports) saveSync();
+    if (state.data.reports) await saveSync();
   }
 }
 
-export function replyToReport(id, reply) {
+export async function replyToReport(id, reply) {
   const r = state.data?.reports?.find((x) => x.id === id);
   if (r) {
     r.reply = reply?.trim() || "";
     r.replyTimestamp = r.reply ? new Date().toISOString() : "";
-    if (state.data.reports) saveSync();
+    if (state.data.reports) await saveSync();
   }
 }
 
-export function removeReport(id) {
+export async function removeReport(id) {
   if (state.data?.reports) {
     state.data.reports = state.data.reports.filter((x) => x.id !== id);
-    saveSync();
+    await saveSync();
   }
 }
 
-export function editReport(id, fields) {
+export async function editReport(id, fields) {
   const r = state.data?.reports?.find((x) => x.id === id);
   if (r) {
     Object.assign(r, fields);
-    saveSync();
+    await saveSync();
   }
 }
 
@@ -648,7 +648,6 @@ export async function seedTestData() {
   const settings = state.data.settings;
   const grades = settings.grades?.length ? settings.grades : ["7"];
   const clubs = settings.clubs?.length ? settings.clubs : ["General Club"];
-  const positions = getPositions();
 
   state.data.candidates = [];
   state.data.voters = [];
@@ -656,37 +655,70 @@ export async function seedTestData() {
   state.data.votedDevices = [];
   state.data.reports = [];
 
-  positions.forEach((position) => {
-    const type = position.type || "sbo";
-    const scopedValues =
-      type === "club"
-        ? clubs
-        : type === "classroom"
-          ? grades.flatMap((grade) =>
-              (settings.sectionsByGrade?.[grade] || [""]).map((section) => ({
-                grade,
-                section,
-              })),
-            )
-          : [null];
-    scopedValues.forEach((scope, scopeIndex) => {
-      const candidateCount = type === "sbo" ? 3 : 2;
-      for (let index = 1; index <= candidateCount; index++) {
-        const grade =
-          scope?.grade || grades[(index + scopeIndex) % grades.length];
-        state.data.candidates.push({
-          id: makeId("cand"),
-          positionId: position.id,
-          name: `${position.name} Candidate ${scopeIndex ? scopeIndex + 1 : ""}${index}`
-            .replace(/\s+/g, " ")
-            .trim(),
-          grade,
-          section: scope?.section || "",
-          party: index % 2 === 0 ? "Unity Party" : "Progress Party",
-          club: type === "club" ? scope : "",
-          image: "",
-        });
-      }
+  const positionCandidates = [
+    { positionId: "pos_sbo_president", candidates: [
+      { name: "Bamboo Santiago", party: "ASPIRANTS" },
+      { name: "Franchesca Cruz", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_vp", candidates: [
+      { name: "Mhonica Espanillo", party: "ASPIRANTS" },
+      { name: "Alessandra Tirona", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_secretary", candidates: [
+      { name: "Allison Kiangan", party: "ASPIRANTS" },
+      { name: "Elaixiah Samson", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_treasurer", candidates: [
+      { name: "Rachenne Lestino", party: "ASPIRANTS" },
+      { name: "Dianessa Canillas", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_auditor", candidates: [
+      { name: "Ann Rhea Abance", party: "ASPIRANTS" },
+      { name: "Danielle Ordinario", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_pro", candidates: [
+      { name: "Gianna Ayudoc", party: "ASPIRANTS" },
+      { name: "Shaun Delos Santos", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_male_sgt", candidates: [
+      { name: "Joaquin Cabrera", party: "ASPIRANTS" },
+      { name: "Dominic Pascual", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_female_sgt", candidates: [
+      { name: "Rhea Saggot", party: "ASPIRANTS" },
+      { name: "Antonia Malla", party: "AURORA" }
+    ]},
+    { positionId: "pos_sbo_g710_rep", candidates: [
+      { name: "Amber Santos", party: "ASPIRANTS", grade: "7" },
+      { name: "Phoebe Bacoco", party: "AURORA", grade: "7" },
+      { name: "Yana Macabeo", party: "ASPIRANTS", grade: "8" },
+      { name: "Sydney Rodriguez", party: "AURORA", grade: "8" },
+      { name: "Prince Bannagaw", party: "ASPIRANTS", grade: "9" },
+      { name: "Aiyah De Guzman", party: "AURORA", grade: "9" },
+      { name: "Princess Santos", party: "ASPIRANTS", grade: "10" },
+      { name: "Rhiann Dagdagan", party: "AURORA", grade: "10" }
+    ]},
+    { positionId: "pos_sbo_chinese_rep", candidates: [
+      { name: "Austin Correos", party: "ASPIRANTS" },
+      { name: "Angelynna Weng", party: "AURORA" }
+    ]}
+  ];
+
+  positionCandidates.forEach(({ positionId, candidates }) => {
+    const position = state.data.positions.find(p => p.id === positionId);
+    if (!position) return;
+
+    candidates.forEach(candidate => {
+      state.data.candidates.push({
+        id: makeId("cand"),
+        positionId,
+        name: candidate.name,
+        party: candidate.party,
+        grade: candidate.grade || "",
+        section: "",
+        club: "",
+        image: "",
+      });
     });
   });
 

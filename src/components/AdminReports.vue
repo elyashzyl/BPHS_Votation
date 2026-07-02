@@ -131,20 +131,20 @@ const busyBulk = ref(false)
 function toggle(id) { selected.has(id) ? selected.delete(id) : selected.add(id) }
 function toggleAll(checked, items) { checked ? items.forEach(r => selected.add(r.id)) : selected.clear() }
 
-function bulkResolve(resolved) {
+async function bulkResolve(resolved) {
   busyBulk.value = true
   selected.forEach(id => { const r = state.data?.reports?.find(x => x.id === id); if (r) r.resolved = resolved })
-  saveSync(); selected.clear(); busyBulk.value = false
+  await saveSync(); selected.clear(); busyBulk.value = false
 }
 
-function bulkDelete() {
+async function bulkDelete() {
   if (!confirm('Delete ' + selected.size + ' selected report(s)?')) return
   busyBulk.value = true
   state.data.reports = (state.data.reports || []).filter(r => !selected.has(r.id))
-  saveSync(); selected.clear(); busyBulk.value = false
+  await saveSync(); selected.clear(); busyBulk.value = false
 }
 
-function toggleResolve(id) { resolveReport(id) }
+async function toggleResolve(id) { await resolveReport(id) }
 
 function openDetail(r) {
   detail.value = state.data?.reports?.find(x => x.id === r.id) || r
@@ -163,17 +163,17 @@ function startEdit() {
 
 function cancelEdit() { editing.value = false }
 
-function saveEdit() {
+async function saveEdit() {
   if (!detail.value) return
   if (editName.value.trim()) detail.value.name = editName.value.trim()
   if (editMsg.value.trim()) detail.value.message = editMsg.value.trim()
   editing.value = false
-  saveSync()
+  await saveSync()
 }
 
-function sendReply() {
+async function sendReply() {
   if (!detail.value || !replyText.value.trim()) return
-  replyToReport(detail.value.id, replyText.value)
+  await replyToReport(detail.value.id, replyText.value)
   closeDetail()
 }
 
@@ -182,16 +182,16 @@ function promptDel(r) {
   showDelConfirm.value = true
 }
 
-function confirmDel() {
-  if (detail.value) removeReport(detail.value.id)
+async function confirmDel() {
+  if (detail.value) await removeReport(detail.value.id)
   closeDetail()
 }
 
 function promptClearAll() { showClearModal.value = true }
 
-function confirmClear() {
+async function confirmClear() {
   if (state.data) { if (!state.data.reports) state.data.reports = []; state.data.reports = [] }
-  saveSync()
+  await saveSync()
   showClearModal.value = false
 }
 </script>

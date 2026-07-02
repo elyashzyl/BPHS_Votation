@@ -618,7 +618,7 @@ const showResetModal = ref(false);
 const showSeedModal = ref(false);
 const resetMsg = ref("");
 
-function save() {
+async function save() {
     const f = state.settingsForm;
     if (!f.title) {
         alert("Title required.");
@@ -657,7 +657,7 @@ function save() {
         sectionsByGrade: sbg,
         clubs,
     };
-    saveSync();
+    await saveSync();
     showSaveModal.value = true;
 }
 
