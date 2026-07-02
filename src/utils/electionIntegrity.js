@@ -35,8 +35,10 @@ export function scopedCandidates(data, position, voter = {}) {
   if (type === "club") {
     return all.filter((candidate) => !candidate.club || candidate.club === voter.club);
   }
+  // For representative positions, show all candidates regardless of grade
+  // This allows all students to vote for all grade representatives
   if (position.filterByGrade) {
-    return all.filter((candidate) => !candidate.grade || candidate.grade === voter.grade);
+    return all;
   }
   return all;
 }

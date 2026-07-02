@@ -766,6 +766,13 @@ export async function seedTestData() {
       electionType: "club",
       club: clubs[0],
     },
+    // Add test voters for each grade to test grade filtering
+    ...grades.map((grade, i) => ({
+      name: `Grade ${grade} Test Voter`,
+      grade,
+      section: settings.sectionsByGrade?.[grade]?.[0] || "",
+      electionType: "sbo",
+    })),
   ];
 
   voterTemplates.forEach((template, voterIndex) => {
@@ -790,8 +797,9 @@ export async function seedTestData() {
             return !candidate.section || candidate.section === template.section;
           if (template.electionType === "club")
             return !candidate.club || candidate.club === template.club;
+          // For representative positions, show all candidates regardless of grade
           if (position.filterByGrade)
-            return !candidate.grade || candidate.grade === template.grade;
+            return true;
           return true;
         });
         candidates.slice(0, position.maxVote || 1).forEach((candidate) => {
