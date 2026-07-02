@@ -804,8 +804,10 @@ export async function saveSync() {
   if (state.data) {
     try {
       await DB.save(state.year, state.data);
+      console.log("Data saved successfully for year:", state.year);
     } catch (e) {
       console.error("saveSync failed:", e);
+      throw e;
     }
   }
 }

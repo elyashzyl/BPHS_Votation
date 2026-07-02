@@ -170,14 +170,19 @@ async function saveForm() {
     section: form.section === "all" ? "" : form.section,
     club: form.club === "all" ? "" : form.club,
   };
-  const result = await (editingId.value ? updateCandidate(editingId.value, payload) : createCandidate(payload));
-  if (!result.ok) {
-    formError.value = result.error;
-    return;
-  }
+  try {
+    const result = await (editingId.value ? updateCandidate(editingId.value, payload) : createCandidate(payload));
+    if (!result.ok) {
+      formError.value = result.error;
+      return;
+    }
 
-  notice.value = editingId.value ? "Candidate updated." : "Candidate added.";
-  resetForm();
+    notice.value = editingId.value ? "Candidate updated." : "Candidate added.";
+    resetForm();
+  } catch (error) {
+    console.error("Save form error:", error);
+    formError.value = error.message || "Failed to save candidate. Please try again.";
+  }
 }
 
 function uploadPhoto(id) {
@@ -211,28 +216,43 @@ function uploadPhoto(id) {
 async function confirmDelete() {
   if (!deleteTarget.value) return;
 
-  const result = await removeCandidate(deleteTarget.value.id);
-  notice.value =
-    result.action === "archived"
-      ? "Candidate archived because they already have votes."
-      : "Candidate deleted.";
-  selected.delete(deleteTarget.value.id);
-  deleteTarget.value = null;
+  try {
+    const result = await removeCandidate(deleteTarget.value.id);
+    notice.value =
+      result.action === "archived"
+        ? "Candidate archived because they already have votes."
+        : "Candidate deleted.";
+    selected.delete(deleteTarget.value.id);
+    deleteTarget.value = null;
+  } catch (error) {
+    console.error("Delete candidate error:", error);
+    notice.value = error.message || "Failed to delete candidate. Please try again.";
+  }
 }
 
 async function confirmBulkDelete() {
-  const ids = filteredCandidates.value
-    .filter((candidate) => selected.has(candidate.id))
-    .map((candidate) => candidate.id);
-  const result = await removeCandidates(ids);
-  notice.value = `${result.deleted} deleted, ${result.archived} archived.`;
-  selected.clear();
-  showBulkDelete.value = false;
+  try {
+    const ids = filteredCandidates.value
+      .filter((candidate) => selected.has(candidate.id))
+      .map((candidate) => candidate.id);
+    const result = await removeCandidates(ids);
+    notice.value = `${result.deleted} deleted, ${result.archived} archived.`;
+    selected.clear();
+    showBulkDelete.value = false;
+  } catch (error) {
+    console.error("Bulk delete error:", error);
+    notice.value = error.message || "Failed to delete candidates. Please try again.";
+  }
 }
 
 async function restore(id) {
-  await restoreCandidate(id);
-  notice.value = "Candidate restored.";
+  try {
+    await restoreCandidate(id);
+    notice.value = "Candidate restored.";
+  } catch (error) {
+    console.error("Restore candidate error:", error);
+    notice.value = error.message || "Failed to restore candidate. Please try again.";
+  }
 }
 
 function toggle(id) {

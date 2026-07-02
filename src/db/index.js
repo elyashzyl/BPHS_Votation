@@ -384,15 +384,22 @@ export const DB = {
           tx.onerror = (e) => reject(e.target.error);
         });
         saved = true;
-      } catch {}
+      } catch (e) {
+        console.error("IndexedDB save failed:", e);
+      }
     }
 
     if (!saved && this._fallback) {
       try {
         localStorage.setItem(lsKey(year), JSON.stringify(payload));
+        saved = true;
       } catch (e) {
         console.error("localStorage save failed:", e);
       }
+    }
+
+    if (!saved) {
+      console.error("All save methods failed for year:", year);
     }
   },
 

@@ -111,35 +111,50 @@ function editPosition(position) {
 }
 
 async function saveForm() {
-  const result = await (editingId.value ? updatePosition(editingId.value, form) : createPosition(form));
-  if (!result.ok) {
-    formError.value = result.error;
-    return;
-  }
+  try {
+    const result = await (editingId.value ? updatePosition(editingId.value, form) : createPosition(form));
+    if (!result.ok) {
+      formError.value = result.error;
+      return;
+    }
 
-  notice.value = editingId.value ? "Position updated." : "Position added.";
-  posType.value = form.type;
-  resetForm();
+    notice.value = editingId.value ? "Position updated." : "Position added.";
+    posType.value = form.type;
+    resetForm();
+  } catch (error) {
+    console.error("Save form error:", error);
+    formError.value = error.message || "Failed to save position. Please try again.";
+  }
 }
 
 async function confirmDelete() {
   if (!deleteTarget.value) return;
 
-  const result = await removePosition(deleteTarget.value.id);
-  notice.value =
-    result.action === "archived"
-      ? "Position archived because it already has votes."
-      : "Position deleted.";
-  selected.delete(deleteTarget.value.id);
-  deleteTarget.value = null;
+  try {
+    const result = await removePosition(deleteTarget.value.id);
+    notice.value =
+      result.action === "archived"
+        ? "Position archived because it already has votes."
+        : "Position deleted.";
+    selected.delete(deleteTarget.value.id);
+    deleteTarget.value = null;
+  } catch (error) {
+    console.error("Delete position error:", error);
+    notice.value = error.message || "Failed to delete position. Please try again.";
+  }
 }
 
 async function confirmBulkDelete() {
-  const ids = selectedItems.value.map((position) => position.id);
-  const result = await removePositions(ids);
-  notice.value = `${result.deleted} deleted, ${result.archived} archived.`;
-  selected.clear();
-  showBulkDelete.value = false;
+  try {
+    const ids = selectedItems.value.map((position) => position.id);
+    const result = await removePositions(ids);
+    notice.value = `${result.deleted} deleted, ${result.archived} archived.`;
+    selected.clear();
+    showBulkDelete.value = false;
+  } catch (error) {
+    console.error("Bulk delete error:", error);
+    notice.value = error.message || "Failed to delete positions. Please try again.";
+  }
 }
 
 async function restore(id) {
