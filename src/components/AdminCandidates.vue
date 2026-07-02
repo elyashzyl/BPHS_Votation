@@ -77,7 +77,7 @@
           <div v-if="type==='club'" class="form-group"><label>Club</label><select v-model="addForm.club"><option value="">Any</option><option v-for="c in clubs" :key="c" :value="c">{{ c }}</option></select></div>
         </div>
         <div class="modal-box-footer">
-          <button class="btn btn-sm btn-secondary" @click="showAddForm=false">Cancel</button>
+          <button class="btn btn-sm btn-secondary" @click="showAddForm=false">Close</button>
           <button class="btn btn-sm btn-primary" @click="saveAdd">Add</button>
         </div>
       </div>
@@ -154,8 +154,7 @@ function saveAdd() {
   if (!state.candTabPosId || !addForm.name.trim()) return
   state.data.candidates.push({ id: 'cand_' + Date.now(), positionId: state.candTabPosId, name: addForm.name.trim(), grade: addForm.grade, section: addForm.section, party: addForm.party.trim(), club: addForm.club || '', image: '' })
   saveSync()
-  showAddForm.value = false
-  addForm.name = ''; addForm.grade = settings.value.grades[0] || '7'; addForm.section = ''; addForm.party = ''; addForm.club = ''
+  addForm.name = ''
 }
 
 function editCand(c) {
