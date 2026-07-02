@@ -11,7 +11,7 @@
       </div>
     </div>
     <div class="admin-actions">
-      <button class="btn btn-sm btn-primary" @click="showAddForm = true">+ Add</button>
+      <button class="btn btn-sm btn-primary" @click="openAdd">+ Add</button>
       <template v-if="selected.size">
         <span class="text-sm text-muted" style="margin-left:8px;">{{ selected.size }} selected</span>
         <button class="btn btn-sm btn-danger" @click="bulkDelete" :disabled="busyBulk">Delete</button>
@@ -70,6 +70,11 @@
       <div class="modal-box" @click.stop>
         <div class="modal-box-header"><h3>Add Candidate</h3><button class="modal-box-close" @click="showAddForm=false"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
         <div class="modal-box-body">
+          <div class="form-group"><label>Position</label>
+            <select v-model="addForm.positionId">
+              <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+          </div>
           <div class="form-group"><label>Name</label><input type="text" v-model="addForm.name" placeholder="Candidate name" /></div>
           <div class="form-group"><label>Grade</label><select v-model="addForm.grade"><option v-for="g in settings.grades" :key="g" :value="g">Grade {{ g }}</option></select></div>
           <div v-if="type==='classroom'" class="form-group"><label>Section</label><select v-model="addForm.section"><option value="">Any</option><option v-for="s in sectionsForGrade(addForm.grade)" :key="s" :value="s">{{ s }}</option></select></div>
@@ -133,7 +138,7 @@ const delMsg = ref('')
 const editTarget = ref(null)
 const editForm = reactive({ name: '', grade: '7', section: '', party: '', club: '' })
 const showAddForm = ref(false)
-const addForm = reactive({ name: '', grade: '7', section: '', party: '', club: '' })
+const addForm = reactive({ name: '', grade: '7', section: '', party: '', club: '', positionId: '' })
 const selected = reactive(new Set())
 const busyBulk = ref(false)
 
@@ -150,9 +155,14 @@ function cands(posId) { return getCandidates(posId) }
 
 function sectionsForGrade(g) { return getSections(g) }
 
+function openAdd() {
+  addForm.positionId = state.candTabPosId || (positions.value[0]?.id || '')
+  showAddForm.value = true
+}
+
 function saveAdd() {
-  if (!state.candTabPosId || !addForm.name.trim()) return
-  state.data.candidates.push({ id: 'cand_' + Date.now(), positionId: state.candTabPosId, name: addForm.name.trim(), grade: addForm.grade, section: addForm.section, party: addForm.party.trim(), club: addForm.club || '', image: '' })
+  if (!addForm.positionId || !addForm.name.trim()) return
+  state.data.candidates.push({ id: 'cand_' + Date.now(), positionId: addForm.positionId, name: addForm.name.trim(), grade: addForm.grade, section: addForm.section, party: addForm.party.trim(), club: addForm.club || '', image: '' })
   saveSync()
   addForm.name = ''
 }
