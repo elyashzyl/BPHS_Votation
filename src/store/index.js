@@ -738,6 +738,14 @@ export async function seedTestData() {
 
   console.log("Total candidates seeded:", state.data.candidates.length);
 
+  // Seed directly to Supabase
+  const supabaseResult = await DB.seedCandidatesToSupabase(state.year, state.data.candidates);
+  if (supabaseResult.ok) {
+    console.log(`Successfully seeded ${supabaseResult.count} candidates to Supabase`);
+  } else {
+    console.warn("Supabase seed failed:", supabaseResult.error);
+  }
+
   const voterTemplates = [
     {
       name: "Test Voter One",

@@ -560,6 +560,44 @@ export const DB = {
     }
   },
 
+  async seedCandidatesToSupabase(year, candidates) {
+    if (!this.ready || !supabase) {
+      return { ok: false, error: "Supabase not configured" };
+    }
+    if (!this.normalizedReady) {
+      return { ok: false, error: "Normalized tables not available" };
+    }
+
+    try {
+      // Delete existing candidates for this year
+      const { error: deleteError } = await supabase
+        .from("candidates")
+        .delete()
+        .eq("year", year);
+      
+      if (deleteError) {
+        console.warn("Delete candidates error:", deleteError);
+        // Continue anyway - table might be empty
+      }
+
+      // Insert new candidates
+      const candidateRows = candidates.map(c => candidateToRow(year, c));
+      
+      if (candidateRows.length > 0) {
+        const { error: insertError } = await supabase
+          .from("candidates")
+          .insert(candidateRows);
+        
+        if (insertError) throw insertError;
+      }
+
+      return { ok: true, count: candidateRows.length };
+    } catch (error) {
+      console.error("Seed candidates to Supabase failed:", error);
+      return { ok: false, error: formatSupabaseError("SEED CANDIDATES", error, true) };
+    }
+  },
+
   async list() {
     let years = [];
 
