@@ -10,7 +10,7 @@ export function freshData() {
       { id: 'pos_secretary', name: 'Secretary', order: 3, maxVote: 1, type: 'sbo' },
       { id: 'pos_treasurer', name: 'Treasurer', order: 4, maxVote: 1, type: 'sbo' },
       { id: 'pos_auditor', name: 'Auditor', order: 5, maxVote: 1, type: 'sbo' },
-      { id: 'pos_pro', name: 'P.R.O.', order: 6, maxVote: 1, type: 'sbo' },
+      { id: 'pos_pro', name: 'Press Relations Officer (PRO)', order: 6, maxVote: 1, type: 'sbo' },
       { id: 'pos_male_sgt', name: 'Male Sergeant at Arms', order: 7, maxVote: 1, type: 'sbo' },
       { id: 'pos_female_sgt', name: 'Female Sergeant at Arms', order: 8, maxVote: 1, type: 'sbo' },
       { id: 'pos_g7_rep', name: 'Grade 7 Representative', order: 9, maxVote: 2, type: 'sbo', filterByGrade: true },
