@@ -219,18 +219,8 @@ export function editReport(id, fields) {
   if (r) { Object.assign(r, fields); saveSync() }
 }
 
-export function deviceVoted() {
-  if (!state.data) return false
-  const prefix = Device.getId() + ':'
-  const count = state.data.votedDevices.filter(d => d.startsWith(prefix)).length
-  return count >= 3
-}
-
-export function deviceVotedAny() {
-  if (!state.data) return false
-  const prefix = Device.getId() + ':'
-  return state.data.votedDevices.filter(d => d.startsWith(prefix)).length >= 3
-}
+export function deviceVoted() { return false }
+export function deviceVotedAny() { return false }
 
 export async function saveSync() {
   if (state.data) {

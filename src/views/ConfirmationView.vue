@@ -23,7 +23,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Device } from '../utils/device.js'
-import { state, getPositions, getAllCandidates, saveSync, deviceVoted } from '../store/index.js'
+import { state, getPositions, getAllCandidates, saveSync } from '../store/index.js'
 
 const router = useRouter()
 const type = computed(() => state.electionType || 'sbo')
@@ -38,7 +38,6 @@ function selected(posId) {
 }
 
 async function submit() {
-  if (deviceVoted()) { alert('This device has reached the maximum of 3 votes.'); router.push('/'); return }
   const v = state.voter
   const d = state.data
   const et = state.electionType
