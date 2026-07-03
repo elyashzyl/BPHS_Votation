@@ -3,7 +3,8 @@ import { supabase, sbInitialized } from '../supabase.js'
 const DB_NAME = 'SBO_Votation';
 const STORE_NAME = 'elections';
 const LS_PREFIX = 'sbo_';
-const API_BASE = 'http://localhost:3001/api';
+const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+const API_BASE = 'http://' + host + ':3001/api';
 
 function lsKey(year) { return LS_PREFIX + year }
 
