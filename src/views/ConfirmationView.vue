@@ -52,8 +52,8 @@ async function submit() {
     })
   })
   try { localStorage.removeItem('sbo_draft_' + Device.getId() + '_' + et) } catch {}
+  await saveSync()
   router.push('/vote/success')
-  saveSync()
 }
 
 function goBack() { router.push('/vote/booth') }

@@ -235,6 +235,17 @@ async function loadYear(year) {
     data = freshData()
     await DB.save(year, data)
   }
+  /* Restore from beforeunload flush if newer */
+  if (typeof window !== 'undefined') {
+    try {
+      const flushed = localStorage.getItem('sbo_flush_' + year)
+      if (flushed) {
+        const fd = JSON.parse(flushed)
+        if (fd.voters && fd.voters.length > (data.voters || []).length) { data = fd }
+        localStorage.removeItem('sbo_flush_' + year)
+      }
+    } catch {}
+  }
   if (!data.settings.clubs) data.settings.clubs = ['English Club', 'Science Club', 'Math Club']
   if (!data.reports) data.reports = []
   if (!data.votedDevices) data.votedDevices = []
@@ -303,6 +314,15 @@ export async function initApp() {
     }
   }
   state.loading = false
+  /* Periodic auto-save every 10 seconds */
+  if (typeof window !== 'undefined') {
+    setInterval(() => { if (state.data) saveSync() }, 10000)
+    window.addEventListener('beforeunload', () => {
+      if (state.data) {
+        try { localStorage.setItem('sbo_flush_' + state.year, JSON.stringify(clone(state.data))) } catch {}
+      }
+    })
+  }
 }
 
 export async function switchYear(year) {

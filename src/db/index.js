@@ -12,12 +12,19 @@ function clone(obj) {
   return JSON.parse(JSON.stringify(obj))
 }
 
-async function _api(method, path, body) {
-  const opts = { method, headers: {} }
-  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body) }
-  const res = await fetch(API_BASE + path, opts)
-  if (!res.ok) throw new Error('API ' + res.status + ' ' + res.statusText)
-  return res.json()
+async function _api(method, path, body, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const opts = { method, headers: {} }
+      if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body) }
+      const res = await fetch(API_BASE + path, opts)
+      if (!res.ok) throw new Error('API ' + res.status + ' ' + res.statusText)
+      return res.json()
+    } catch (e) {
+      if (attempt < retries) await new Promise(r => setTimeout(r, 300))
+      else throw e
+    }
+  }
 }
 
 export const DB = {
@@ -127,10 +134,10 @@ export const DB = {
       }
     }
 
-    if (!saved && this.ready && supabase) {
+    if (this.ready && supabase) {
       try {
         const { error } = await supabase.from('elections').upsert({ year, data: payload })
-        if (!error) { saved = true; this.syncStatus = 'cloud'; this.syncError = '' }
+        if (!error) { this.syncStatus = 'cloud'; this.syncError = '' }
         else { this.syncStatus = 'error'; this.syncError = error.message }
       } catch (e) {
         this.syncStatus = 'error'; this.syncError = e.message || String(e)
@@ -150,9 +157,10 @@ export const DB = {
       } catch {}
     }
 
-    if (!saved && this._fallback) {
+    if (this._fallback) {
       try {
         localStorage.setItem(lsKey(year), JSON.stringify(payload))
+        saved = true
       } catch (e) { console.error('localStorage save failed:', e) }
     }
   },
