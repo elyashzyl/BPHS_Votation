@@ -248,6 +248,23 @@ async function loadYear(year) {
   if (!data.settings.clubs) data.settings.clubs = ['English Club', 'Science Club', 'Math Club']
   if (!data.reports) data.reports = []
   if (!data.votedDevices) data.votedDevices = []
+  /* Migrate: add missing per-grade Rep positions */
+  const gradeReps = [
+    { id: 'pos_g7_rep', name: 'Grade 7 Representative', order: 9 },
+    { id: 'pos_g8_rep', name: 'Grade 8 Representative', order: 10 },
+    { id: 'pos_g9_rep', name: 'Grade 9 Representative', order: 11 },
+    { id: 'pos_g10_rep', name: 'Grade 10 Representative', order: 12 },
+  ]
+  const oldG710 = data.positions.find(p => p.id === 'pos_g710_rep')
+  if (oldG710) {
+    data.positions = data.positions.filter(p => p.id !== 'pos_g710_rep')
+    gradeReps.forEach((gr, i) => {
+      if (!data.positions.find(p => p.id === gr.id)) {
+        data.positions.push({ ...gr, maxVote: 2, type: 'sbo', filterByGrade: true })
+      }
+    })
+    data.positions.sort((a, b) => a.order - b.order)
+  }
   /* Migrate: filterByGrade only for grade-specific rep; remove from all others */
   data.positions.forEach(p => {
     if (p.type === 'sbo' && /grade/i.test(p.name) && /representative/i.test(p.name)) {
@@ -256,6 +273,15 @@ async function loadYear(year) {
       delete p.filterByGrade
     }
   })
+  /* Migrate: inject fresh data candidates into existing data (by id) */
+  const fresh = freshData()
+  const existingIds = new Set(data.candidates.map(c => c.id))
+  fresh.candidates.forEach(fc => {
+    if (!existingIds.has(fc.id)) data.candidates.push(fc)
+  })
+  /* Migrate: update PRO position name */
+  const proPos = data.positions.find(p => p.id === 'pos_pro')
+  if (proPos && proPos.name === 'P.R.O.') proPos.name = 'Press Relations Officer (PRO)'
   state.year = year
   state.data = data
   state.years = await DB.list()
