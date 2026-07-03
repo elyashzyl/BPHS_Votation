@@ -24,34 +24,14 @@
       </div>
       <div class="card">
         <div class="table-wrap" style="max-height:500px;overflow-y:auto;">
-          <table><thead><tr><th style="width:32px;"><input type="checkbox" :checked="selected.size === filteredVoters.length && filteredVoters.length > 0" @change="toggleAll($event.target.checked, filteredVoters)" /></th><th>#</th><th>Name</th><th>Grade</th><th>Section</th><th>Time</th><th></th></tr></thead>
+          <table><thead><tr><th style="width:32px;"><input type="checkbox" :checked="selected.size === filteredVoters.length && filteredVoters.length > 0" @change="toggleAll($event.target.checked, filteredVoters)" /></th><th>#</th><th>Name</th><th>Grade</th><th>Section</th><th>Type</th><th>Ballot</th><th>Time</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="(v,i) in filteredVoters" :key="v.id" :class="{ 'row-selected': selected.has(v.id) }"><td><input type="checkbox" :checked="selected.has(v.id)" @change="toggle(v.id)" /></td><td>{{ i+1 }}</td><td>{{ v.name }}</td><td>{{ v.grade }}</td><td>{{ v.section }}</td><td>{{ new Date(v.timestamp).toLocaleString() }}</td><td><div class="row-actions"><button class="btn btn-sm btn-accent" @click="viewVotes(v)" title="View ballot"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5.5 7-5.5S15 8 15 8s-2.5 5.5-7 5.5S1 8 1 8z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg></button><button class="btn btn-sm btn-danger" @click="promptDel(v)" title="Delete"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div></td></tr>
-              <tr v-if="!filteredVoters.length"><td colspan="7" class="text-muted text-center">No voters</td></tr>
+              <tr v-for="(v,i) in filteredVoters" :key="v.id" :class="{ 'row-selected': selected.has(v.id) }"><td><input type="checkbox" :checked="selected.has(v.id)" @change="toggle(v.id)" /></td><td>{{ i+1 }}</td><td>{{ v.name }}</td><td>{{ v.grade }}</td><td>{{ v.section }}</td><td><span class="badge" :class="v.electionType==='classroom'?'badge-success':v.electionType==='club'?'badge-club':'badge-warning'" style="font-size:.65rem;">{{ (v.electionType||'sbo').toUpperCase() }}</span></td><td style="font-size:.75rem;max-width:320px;white-space:normal;word-break:break-word;"><template v-if="voterBallot(v.id).length">{{ voterBallot(v.id).join(' · ') }}</template><em v-else class="text-muted">—</em></td><td style="white-space:nowrap;font-size:.75rem;">{{ new Date(v.timestamp).toLocaleString() }}</td><td><button class="btn btn-sm btn-danger" @click="promptDel(v)" title="Delete"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></td></tr>
+              <tr v-if="!filteredVoters.length"><td colspan="9" class="text-muted text-center">No voters</td></tr>
             </tbody>
           </table>
         </div>
         <p class="text-sm text-muted mt-8">Total: <strong>{{ filteredVoters.length }}</strong></p>
-      </div>
-    </div>
-
-    <!-- View ballot modal -->
-    <div v-if="viewTarget" class="modal-overlay" @click.self="viewTarget=null">
-      <div class="modal-box" @click.stop>
-        <div class="modal-box-header"><h3>Ballot — {{ viewTarget.name }}</h3><button class="modal-box-close" @click="viewTarget=null"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
-        <div class="modal-box-body">
-          <p class="text-sm text-muted mb-16">Grade {{ viewTarget.grade }} - {{ viewTarget.section }} &middot; {{ viewTarget.electionType === 'classroom' ? 'Classroom' : viewTarget.electionType === 'club' ? 'Club' : 'SBO' }} &middot; {{ new Date(viewTarget.timestamp).toLocaleString() }}</p>
-          <div v-for="pos in ballotPositions" :key="pos.id" class="review-item" style="border-bottom:1px solid var(--gray-200);padding:8px 0;">
-            <span class="pos" style="font-weight:600;font-size:.85rem;">{{ pos.name }}</span>
-            <span class="cand" style="font-size:.82rem;">
-              <template v-if="ballotVotes(pos.id).length">{{ ballotVotes(pos.id).join(', ') }}</template>
-              <em v-else class="text-muted">— Abstain</em>
-            </span>
-          </div>
-        </div>
-        <div class="modal-box-footer">
-          <button class="btn btn-sm btn-secondary" @click="viewTarget=null">Close</button>
-        </div>
       </div>
     </div>
   </div>
@@ -59,7 +39,7 @@
 
 <script setup>
 import { ref, computed, watch, reactive } from 'vue'
-import { state, getSettings, getSections, getVoters, getPositions, getAllSections as getAllSecs, saveSync, toggleTheme } from '../store/index.js'
+import { state, getSettings, getSections, getVoters, getPositions, getAllSections, saveSync, toggleTheme } from '../store/index.js'
 import Toggle from '../components/base/toggle/toggle.vue'
 import Dropdown from '../components/base/dropdown/dropdown.vue'
 
@@ -67,12 +47,11 @@ const gradeOpts = computed(() => settings.value.grades.map(g => ({ value: g, lab
 watch(() => state.logFilter.grade, () => { state.logFilter.section = '' })
 const sectionOpts = computed(() => {
   const g = state.logFilter.grade
-  const secs = g ? getSections(g) : getAllSecs()
+  const secs = g ? getSections(g) : getAllSections()
   return secs.map(s => ({ value: s, label: s }))
 })
 
 const settings = computed(() => getSettings())
-const allSections = computed(() => getAllSecs())
 const filteredVoters = computed(() => {
   let f = getVoters()
   if (state.logFilter.grade) f = f.filter(v => v.grade === state.logFilter.grade)
@@ -82,18 +61,21 @@ const filteredVoters = computed(() => {
 
 const selected = reactive(new Set())
 const busyBulk = ref(false)
-const viewTarget = ref(null)
-const ballotPositions = computed(() => {
-  if (!viewTarget.value) return []
-  const et = viewTarget.value.electionType || 'sbo'
-  return getPositions().filter(p => (p.type || 'sbo') === et).sort((a, b) => a.order - b.order)
-})
 
-function viewVotes(voter) { viewTarget.value = voter }
-function ballotVotes(posId) {
-  if (!viewTarget.value) return []
-  const vv = state.data.votes.filter(v => v.voterId === viewTarget.value.id && v.positionId === posId)
-  return vv.map(v => { const c = state.data.candidates.find(x => x.id === v.candidateId); return c ? c.name : '' }).filter(Boolean)
+function voterBallot(voterId) {
+  const vv = state.data.votes.filter(v => v.voterId === voterId)
+  const result = []
+  const etVoter = state.data.voters.find(x => x.id === voterId)
+  const et = (etVoter?.electionType || 'sbo')
+  const positions = getPositions().filter(p => (p.type || 'sbo') === et).sort((a, b) => a.order - b.order)
+  positions.forEach(pos => {
+    const names = vv.filter(v => v.positionId === pos.id).map(v => {
+      const c = state.data.candidates.find(x => x.id === v.candidateId)
+      return c ? c.name : ''
+    }).filter(Boolean)
+    if (names.length) result.push(pos.name + ': ' + names.join(', '))
+  })
+  return result
 }
 
 function toggle(id) { selected.has(id) ? selected.delete(id) : selected.add(id) }
