@@ -8,7 +8,7 @@
       <div class="admin-topbar-right">
         <Toggle :model-value="state.isDark" @update:model-value="toggleTheme" slim size="sm" title="Toggle theme" />
         <span class="badge-year">{{ state.year }}</span>
-        <span class="sync-badge" :class="'sync-' + DB.syncStatus" :title="DB.syncError || ''">{{ DB.syncStatus === 'cloud' ? '☁ Synced' : DB.syncStatus === 'error' ? '⚠ Local' : '◌ Local' }}</span>
+        <span class="sync-badge" :class="'sync-' + DB.syncStatus" :title="DB.syncError || ''">{{ DB.syncStatus === 'sqlite' ? '🗄 SQLite' : DB.syncStatus === 'cloud' ? '☁ Synced' : DB.syncStatus === 'error' ? '⚠ Local' : '◌ Local' }}</span>
         <button class="topbar-logout no-print" @click="exitAdmin" title="Logout">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M11 11l3-3-3-3M6 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>

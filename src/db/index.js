@@ -3,6 +3,7 @@ import { supabase, sbInitialized } from '../supabase.js'
 const DB_NAME = 'SBO_Votation';
 const STORE_NAME = 'elections';
 const LS_PREFIX = 'sbo_';
+const API_BASE = 'http://localhost:3001/api';
 
 function lsKey(year) { return LS_PREFIX + year }
 
@@ -10,23 +11,38 @@ function clone(obj) {
   return JSON.parse(JSON.stringify(obj))
 }
 
+async function _api(method, path, body) {
+  const opts = { method, headers: {} }
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body) }
+  const res = await fetch(API_BASE + path, opts)
+  if (!res.ok) throw new Error('API ' + res.status + ' ' + res.statusText)
+  return res.json()
+}
+
 export const DB = {
   ready: false,
   initPromise: null,
-  syncStatus: 'unknown', /* 'cloud' | 'local' | 'error' */
+  syncStatus: 'unknown',
   syncError: '',
+  _localApi: false,
 
   async open() {
     if (this.ready) return
     if (this.initPromise) return this.initPromise
 
     this.initPromise = (async () => {
-      if (sbInitialized && supabase) {
+      try {
+        await _api('GET', '/health')
+        this._localApi = true
         this.ready = true
-      } else {
-        console.warn('Supabase not configured, using local storage fallback.')
+      } catch {
+        console.warn('Local backend not available, falling back to Supabase.')
+        if (sbInitialized && supabase) {
+          this.ready = true
+        } else {
+          console.warn('Supabase not configured either, using local storage fallback.')
+        }
       }
-      /* Always initialize IndexedDB as fallback */
       await this._openIDB()
     })()
 
@@ -56,8 +72,16 @@ export const DB = {
   async get(year) {
     let result = null
 
-    /* Try Supabase first */
-    if (this.ready && supabase) {
+    if (this._localApi) {
+      try {
+        const data = await _api('GET', '/elections/' + year)
+        if (data) { result = data; this.syncStatus = 'sqlite'; this.syncError = '' }
+      } catch (e) {
+        this.syncStatus = 'error'; this.syncError = e.message || String(e)
+      }
+    }
+
+    if (!result && this.ready && supabase) {
       try {
         const { data, error } = await supabase.from('elections').select('data').eq('year', year).maybeSingle()
         if (!error) { result = data ? data.data : null; this.syncStatus = 'cloud'; this.syncError = '' }
@@ -67,7 +91,6 @@ export const DB = {
       }
     }
 
-    /* Fallback: IndexedDB (if Supabase returned nothing or failed) */
     if (!result && this._idbReady) {
       try {
         result = await new Promise((resolve, reject) => {
@@ -79,7 +102,6 @@ export const DB = {
       } catch {}
     }
 
-    /* Last fallback: localStorage */
     if (!result && this._fallback) {
       try {
         const raw = localStorage.getItem(lsKey(year))
@@ -94,12 +116,19 @@ export const DB = {
     const payload = clone(data)
     let saved = false
 
-    /* Try Supabase first */
-    if (this.ready && supabase) {
+    if (this._localApi) {
       try {
-        const { error } = await supabase.from('elections').upsert(
-          { year, data: payload }
-        )
+        await _api('PUT', '/elections/' + year, payload)
+        saved = true; this.syncStatus = 'sqlite'; this.syncError = ''
+      } catch (e) {
+        this.syncStatus = 'error'; this.syncError = e.message || String(e)
+        console.warn('Local API save failed.', e)
+      }
+    }
+
+    if (!saved && this.ready && supabase) {
+      try {
+        const { error } = await supabase.from('elections').upsert({ year, data: payload })
         if (!error) { saved = true; this.syncStatus = 'cloud'; this.syncError = '' }
         else { this.syncStatus = 'error'; this.syncError = error.message }
       } catch (e) {
@@ -108,7 +137,6 @@ export const DB = {
       }
     }
 
-    /* Always save to IndexedDB as local cache */
     if (this._idbReady) {
       try {
         await new Promise((resolve, reject) => {
@@ -121,7 +149,6 @@ export const DB = {
       } catch {}
     }
 
-    /* Last fallback: localStorage */
     if (!saved && this._fallback) {
       try {
         localStorage.setItem(lsKey(year), JSON.stringify(payload))
@@ -130,16 +157,22 @@ export const DB = {
   },
 
   async testConnection() {
-    if (!this.ready || !supabase) return { ok: false, error: 'Supabase not configured' }
+    if (this._localApi) {
+      try {
+        await _api('PUT', '/elections/_test_', { test: true })
+        await _api('DELETE', '/elections/_test_')
+        return { ok: true }
+      } catch (e) {
+        return { ok: false, error: e.message || String(e) }
+      }
+    }
+    if (!this.ready || !supabase) return { ok: false, error: 'No backend available' }
     try {
-      /* Check table structure */
       const { error: selErr } = await supabase.from('elections').select('year', { count: 'exact', head: true })
       if (selErr) return { ok: false, error: 'SELECT: ' + selErr.message }
-      /* Try a write */
       const testPayload = { year: '_test_', data: { test: true } }
       const { error: upsertErr } = await supabase.from('elections').upsert(testPayload)
       if (upsertErr) return { ok: false, error: 'UPSERT: ' + upsertErr.message }
-      /* Clean up test row */
       await supabase.from('elections').delete().eq('year', '_test_')
       return { ok: true }
     } catch (e) {
@@ -150,8 +183,15 @@ export const DB = {
   async list() {
     let years = []
 
-    /* Try Supabase first */
-    if (this.ready && supabase) {
+    if (this._localApi) {
+      try {
+        years = await _api('GET', '/elections')
+      } catch (e) {
+        console.warn('Local API list failed.', e)
+      }
+    }
+
+    if (!years.length && this.ready && supabase) {
       try {
         const { data, error } = await supabase.from('elections').select('year').order('year', { ascending: true })
         if (!error) years = (data || []).map(d => d.year)
@@ -160,7 +200,6 @@ export const DB = {
       }
     }
 
-    /* Fallback: IndexedDB */
     if (!years.length && this._idbReady) {
       try {
         years = await new Promise((resolve, reject) => {
@@ -172,7 +211,6 @@ export const DB = {
       } catch {}
     }
 
-    /* Last fallback: localStorage */
     if (!years.length && this._fallback) {
       try {
         years = Object.keys(localStorage).filter(k => k.startsWith(LS_PREFIX)).map(k => k.slice(LS_PREFIX.length))
@@ -185,8 +223,16 @@ export const DB = {
   async remove(year) {
     let removed = false
 
-    /* Try Supabase first */
-    if (this.ready && supabase) {
+    if (this._localApi) {
+      try {
+        await _api('DELETE', '/elections/' + year)
+        removed = true
+      } catch (e) {
+        console.warn('Local API remove failed.', e)
+      }
+    }
+
+    if (!removed && this.ready && supabase) {
       try {
         const { error } = await supabase.from('elections').delete().eq('year', year)
         if (!error) removed = true
@@ -195,7 +241,6 @@ export const DB = {
       }
     }
 
-    /* Also remove from IndexedDB */
     if (this._idbReady) {
       try {
         await new Promise((resolve, reject) => {
@@ -208,7 +253,6 @@ export const DB = {
       } catch {}
     }
 
-    /* Also remove from localStorage */
     if (this._fallback) {
       try { localStorage.removeItem(lsKey(year)); removed = true } catch {}
     }
