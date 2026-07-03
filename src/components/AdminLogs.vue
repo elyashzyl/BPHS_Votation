@@ -22,7 +22,14 @@
         <div class="form-group"><label>Grade</label><Dropdown v-model="state.logFilter.grade" :options="gradeOpts" placeholder="All" /></div>
         <div class="form-group"><label>Section</label><Dropdown v-model="state.logFilter.section" :options="sectionOpts" placeholder="All" /></div>
       </div>
-      <div class="card">
+
+      <div class="tabs" style="margin-bottom:12px;">
+        <button class="tab" :class="{ active: tab==='voters' }" @click="tab='voters'">Voters ({{ filteredVoters.length }})</button>
+        <button class="tab" :class="{ active: tab==='votes' }" @click="tab='votes'">Votes ({{ allVotes.length }})</button>
+      </div>
+
+      <!-- Voters table -->
+      <div v-if="tab==='voters'" class="card">
         <div class="table-wrap" style="max-height:500px;overflow-y:auto;">
           <table><thead><tr><th style="width:32px;"><input type="checkbox" :checked="selected.size === filteredVoters.length && filteredVoters.length > 0" @change="toggleAll($event.target.checked, filteredVoters)" /></th><th>#</th><th>Name</th><th>Grade</th><th>Section</th><th>Type</th><th>Ballot</th><th>Time</th><th></th></tr></thead>
             <tbody>
@@ -31,7 +38,20 @@
             </tbody>
           </table>
         </div>
-        <p class="text-sm text-muted mt-8">Total: <strong>{{ filteredVoters.length }}</strong></p>
+        <p class="text-sm text-muted mt-8">Total: <strong>{{ filteredVoters.length }} voter(s)</strong></p>
+      </div>
+
+      <!-- Votes (flat audit log) -->
+      <div v-if="tab==='votes'" class="card">
+        <div class="table-wrap" style="max-height:500px;overflow-y:auto;">
+          <table><thead><tr><th>#</th><th>Voter</th><th>Grade</th><th>Section</th><th>Type</th><th>Position</th><th>Candidate</th><th>Party</th><th>Time</th></tr></thead>
+            <tbody>
+              <tr v-for="(vt,i) in allVotes" :key="vt.id"><td>{{ i+1 }}</td><td>{{ vt.voterName }}</td><td>{{ vt.grade }}</td><td>{{ vt.section }}</td><td><span class="badge" :class="vt.type==='classroom'?'badge-success':vt.type==='club'?'badge-club':'badge-warning'" style="font-size:.65rem;">{{ vt.type.toUpperCase() }}</span></td><td style="font-size:.78rem;">{{ vt.positionName }}</td><td style="font-size:.78rem;">{{ vt.candidateName }}</td><td style="font-size:.78rem;">{{ vt.party }}</td><td style="white-space:nowrap;font-size:.75rem;">{{ vt.time }}</td></tr>
+              <tr v-if="!allVotes.length"><td colspan="9" class="text-muted text-center">No votes</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-muted mt-8">Total: <strong>{{ allVotes.length }} vote(s)</strong> &middot; {{ uniqueVoters }} unique voter(s)</p>
       </div>
     </div>
   </div>
@@ -39,7 +59,7 @@
 
 <script setup>
 import { ref, computed, watch, reactive } from 'vue'
-import { state, getSettings, getSections, getVoters, getPositions, getAllSections, saveSync, toggleTheme } from '../store/index.js'
+import { state, getSettings, getSections, getVoters, getPositions, getAllCandidates, getAllSections, saveSync, toggleTheme } from '../store/index.js'
 import Toggle from '../components/base/toggle/toggle.vue'
 import Dropdown from '../components/base/dropdown/dropdown.vue'
 
@@ -61,6 +81,34 @@ const filteredVoters = computed(() => {
 
 const selected = reactive(new Set())
 const busyBulk = ref(false)
+const tab = ref('voters')
+
+function _cand(id) { return getAllCandidates().find(c => c.id === id) }
+function _pos(id) { return getPositions().find(p => p.id === id) }
+
+const allVotes = computed(() => {
+  return state.data.votes.map(v => {
+    const voter = state.data.voters.find(x => x.id === v.voterId)
+    const cand = _cand(v.candidateId)
+    const pos = _pos(v.positionId)
+    return {
+      id: v.id,
+      voterName: voter?.name || '?',
+      grade: voter?.grade || '',
+      section: voter?.section || '',
+      type: voter?.electionType || (pos?.type || 'sbo'),
+      positionName: pos?.name || v.positionId,
+      candidateName: cand?.name || '?',
+      party: cand?.party || '',
+      time: new Date(v.timestamp).toLocaleString(),
+    }
+  })
+})
+
+const uniqueVoters = computed(() => {
+  const s = new Set(allVotes.value.map(v => v.voterName))
+  return s.size
+})
 
 function voterBallot(voterId) {
   const vv = state.data.votes.filter(v => v.voterId === voterId)
