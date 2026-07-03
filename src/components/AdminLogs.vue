@@ -99,26 +99,27 @@ function ballotVotes(posId) {
 function toggle(id) { selected.has(id) ? selected.delete(id) : selected.add(id) }
 function toggleAll(checked, items) { checked ? items.forEach(v => selected.add(v.id)) : selected.clear() }
 
-async function bulkDelete() {
+function _entries(v) { return (v.deviceId || '') + ':' + (v.electionType || 'sbo') }
+
+function bulkDelete() {
   if (!confirm('Delete ' + selected.size + ' selected voter(s) and their votes?')) return
   busyBulk.value = true
-  const ids = [...selected]
-  state.data.votedDevices = state.data.votedDevices.filter(d => {
-    const voter = state.data.voters.find(v => selected.has(v.id) && v.deviceId + ':' + (v.electionType || 'sbo') === d)
-    return !voter
-  })
+  const toDel = state.data.voters.filter(v => selected.has(v.id))
+  const ids = toDel.map(v => v.id)
+  const entries = toDel.map(v => _entries(v))
+  if (state.data.votedDevices) state.data.votedDevices = state.data.votedDevices.filter(d => !entries.includes(d))
   state.data.voters = state.data.voters.filter(v => !ids.includes(v.id))
   state.data.votes = state.data.votes.filter(v => !ids.includes(v.voterId))
-  selected.clear(); busyBulk.value = false; await saveSync()
+  selected.clear(); busyBulk.value = false; saveSync()
 }
 
-async function promptDel(v) {
+function promptDel(v) {
   if (!confirm('Delete "' + v.name + '" (Grade ' + v.grade + ' - ' + v.section + ')?')) return
-  const id = v.id
-  state.data.votedDevices = state.data.votedDevices.filter(d => d !== v.deviceId + ':' + (v.electionType || 'sbo'))
-  state.data.voters = state.data.voters.filter(x => x.id !== id)
-  state.data.votes = state.data.votes.filter(x => x.voterId !== id)
-  await saveSync()
+  const entry = _entries(v)
+  if (state.data.votedDevices) state.data.votedDevices = state.data.votedDevices.filter(d => d !== entry)
+  state.data.voters = state.data.voters.filter(x => x.id !== v.id)
+  state.data.votes = state.data.votes.filter(x => x.voterId !== v.id)
+  saveSync()
 }
 
 function _dl(csv, fn) {

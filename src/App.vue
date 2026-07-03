@@ -5,6 +5,10 @@
   </div>
 
   <template v-if="!state.loading">
+    <div class="bg-orb bg-orb--1"></div>
+    <div class="bg-orb bg-orb--2"></div>
+    <div class="bg-orb bg-orb--3"></div>
+
     <router-view />
 
     <ChatBot />

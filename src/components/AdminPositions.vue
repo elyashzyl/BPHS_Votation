@@ -1,394 +1,232 @@
-<script setup>
-import { computed, reactive, shallowRef, watch } from "vue";
-import { ArchiveRestore, Edit3, Moon, RotateCcw, Search, Trash2 } from "lucide-vue-next";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  createPosition,
-  getCandidates,
-  getPositions,
-  removePosition,
-  removePositions,
-  restorePosition,
-  state,
-  toggleTheme,
-  updatePosition,
-} from "../store/index.js";
-import ModalDialog from "./ModalDialog.vue";
-
-const positionTypes = [
-  { value: "sbo", label: "SBO" },
-  { value: "classroom", label: "Classroom" },
-  { value: "club", label: "Club" },
-];
-
-const posType = shallowRef(state.candTabType || "sbo");
-const query = shallowRef("");
-const showArchived = shallowRef(false);
-const selected = reactive(new Set());
-const editingId = shallowRef("");
-const deleteTarget = shallowRef(null);
-const showBulkDelete = shallowRef(false);
-const notice = shallowRef("");
-const formError = shallowRef("");
-
-const form = reactive({
-  name: "",
-  type: "sbo",
-  order: 1,
-  maxVote: 1,
-  filterByGrade: false,
-});
-
-watch(posType, (value) => {
-  state.candTabType = value;
-  selected.clear();
-});
-
-const filtered = computed(() => {
-  const needle = query.value.trim().toLowerCase();
-  return getPositions()
-    .filter((position) => (position.type || "sbo") === posType.value)
-    .filter((position) => showArchived.value || !position.archived)
-    .filter((position) => !needle || position.name.toLowerCase().includes(needle))
-    .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
-});
-
-const selectedItems = computed(() => filtered.value.filter((position) => selected.has(position.id)));
-const currentTypeLabel = computed(
-  () => positionTypes.find((type) => type.value === posType.value)?.label || "SBO",
-);
-
-function candidateCount(id) {
-  return getCandidates(id).length;
-}
-
-function resetForm() {
-  editingId.value = "";
-  form.name = "";
-  form.type = posType.value;
-  form.order =
-    Math.max(
-      0,
-      ...getPositions()
-        .filter((position) => (position.type || "sbo") === posType.value)
-        .map((position) => Number(position.order || 0)),
-    ) + 1;
-  form.maxVote = 1;
-  form.filterByGrade = false;
-  formError.value = "";
-}
-
-function editPosition(position) {
-  editingId.value = position.id;
-  form.name = position.name;
-  form.type = position.type || "sbo";
-  form.order = position.order;
-  form.maxVote = position.maxVote;
-  form.filterByGrade = !!position.filterByGrade;
-  formError.value = "";
-}
-
-async function saveForm() {
-  try {
-    const result = await (editingId.value ? updatePosition(editingId.value, form) : createPosition(form));
-    if (!result.ok) {
-      formError.value = result.error;
-      return;
-    }
-
-    notice.value = editingId.value ? "Position updated." : "Position added.";
-    posType.value = form.type;
-    resetForm();
-  } catch (error) {
-    console.error("Save form error:", error);
-    formError.value = error.message || "Failed to save position. Please try again.";
-  }
-}
-
-async function confirmDelete() {
-  if (!deleteTarget.value) return;
-
-  try {
-    const result = await removePosition(deleteTarget.value.id);
-    notice.value =
-      result.action === "archived"
-        ? "Position archived because it already has votes."
-        : "Position deleted.";
-    selected.delete(deleteTarget.value.id);
-    deleteTarget.value = null;
-  } catch (error) {
-    console.error("Delete position error:", error);
-    notice.value = error.message || "Failed to delete position. Please try again.";
-  }
-}
-
-async function confirmBulkDelete() {
-  try {
-    const ids = selectedItems.value.map((position) => position.id);
-    const result = await removePositions(ids);
-    notice.value = `${result.deleted} deleted, ${result.archived} archived.`;
-    selected.clear();
-    showBulkDelete.value = false;
-  } catch (error) {
-    console.error("Bulk delete error:", error);
-    notice.value = error.message || "Failed to delete positions. Please try again.";
-  }
-}
-
-async function restore(id) {
-  await restorePosition(id);
-  notice.value = "Position restored.";
-}
-
-function toggle(id) {
-  selected.has(id) ? selected.delete(id) : selected.add(id);
-}
-
-function toggleAll(checked) {
-  selected.clear();
-  if (checked) filtered.value.forEach((position) => selected.add(position.id));
-}
-
-resetForm();
-</script>
-
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+  <div>
+    <div class="admin-head-actions">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight">Positions</h2>
-        <p class="text-sm text-muted-foreground">
-          Create, archive, restore, and order election positions.
-        </p>
+        <h2>Positions</h2>
+        <p class="text-sm text-muted" style="margin-top:4px;">Manage election positions for the current school year.</p>
       </div>
-      <div class="flex items-center gap-2">
-        <Badge variant="outline">{{ state.year }}</Badge>
-        <Button variant="outline" size="sm" @click="toggleTheme">
-          <Moon data-icon="inline-start" />
-          Theme
-        </Button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <Toggle :model-value="state.isDark" @update:model-value="toggleTheme" slim size="sm" :title="'Toggle theme'" />
+        <span class="badge-year">{{ state.year }}</span>
+      </div>
+    </div>
+    <div class="admin-actions">
+      <button class="btn btn-sm btn-accent" @click="openCopy" v-if="otherYears.length">Copy to...</button>
+      <button class="btn btn-sm btn-primary" @click="openAdd">+ Add</button>
+      <button v-if="posType!=='sbo'" class="btn btn-sm btn-accent" @click="copyFromSBO" :disabled="busyBulk">Copy from SBO</button>
+      <template v-if="selected.size">
+        <span class="text-sm text-muted" style="margin-left:8px;">{{ selected.size }} selected</span>
+        <button class="btn btn-sm btn-danger" @click="bulkDelete" :disabled="busyBulk">Delete</button>
+      </template>
+    </div>
+    <div class="tabs">
+      <span class="tab" :class="{ active: posType==='sbo' }" @click="posType='sbo'">SBO</span>
+      <span class="tab" :class="{ active: posType==='classroom' }" @click="posType='classroom'">Classroom</span>
+      <span class="tab" :class="{ active: posType==='club' }" @click="posType='club'">Club</span>
+    </div>
+    <div class="card mt-16">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:32px;"><input type="checkbox" :checked="selected.size === filtered.length && filtered.length > 0" @change="toggleAll($event.target.checked, filtered)" /></th><th>#</th><th>Position</th><th>Max</th><th>Candidates</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr v-for="pos in filtered" :key="pos.id" :class="{ 'row-selected': selected.has(pos.id) }">
+              <td><input type="checkbox" :checked="selected.has(pos.id)" @change="toggle(pos.id)" /></td>
+              <td>{{ pos.order }}</td>
+              <td>{{ pos.name }}</td>
+              <td>{{ pos.maxVote }}</td>
+              <td>{{ cands(pos.id).length }}</td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn btn-sm btn-accent" @click="editPos(pos)" title="Edit"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5a1.5 1.5 0 012 2L5 13l-3 1 1-3 8.5-8.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>
+                  <button class="btn btn-sm btn-danger" @click="delPos(pos.id)" title="Delete"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!filtered.length"><td colspan="6" class="text-muted text-center">No positions.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <Alert v-if="notice">
-      <ArchiveRestore />
-      <AlertTitle>Saved</AlertTitle>
-      <AlertDescription>{{ notice }}</AlertDescription>
-    </Alert>
-
-    <div class="grid items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <Card class="lg:sticky lg:top-20">
-        <CardHeader>
-          <CardTitle>{{ editingId ? "Edit Position" : "Add Position" }}</CardTitle>
-          <CardDescription>
-            Positions define each ballot section and how many students can select.
-          </CardDescription>
-        </CardHeader>
-        <CardContent class="flex flex-col gap-4">
-          <label class="flex flex-col gap-2 text-sm font-medium">
-            Name
-            <Input v-model="form.name" type="text" placeholder="Position name" />
-          </label>
-
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="flex flex-col gap-2 text-sm font-medium">
-              Type
-              <Select v-model="form.type">
-                <SelectTrigger class="w-full">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem v-for="type in positionTypes" :key="type.value" :value="type.value">
-                      {{ type.label }}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </label>
-
-            <label class="flex flex-col gap-2 text-sm font-medium">
-              Order
-              <Input v-model="form.order" type="number" min="1" />
-            </label>
-          </div>
-
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="flex flex-col gap-2 text-sm font-medium">
-              Max Vote
-              <Input v-model="form.maxVote" type="number" min="1" />
-            </label>
-
-            <label class="flex items-center gap-2 rounded-lg border border-border p-3 text-sm font-medium">
-              <Checkbox
-                :model-value="form.filterByGrade"
-                @update:model-value="(value) => (form.filterByGrade = !!value)"
-              />
-              Grade-scoped
-            </label>
-          </div>
-
-          <Alert v-if="formError" variant="destructive">
-            <Trash2 />
-            <AlertTitle>Check position details</AlertTitle>
-            <AlertDescription>{{ formError }}</AlertDescription>
-          </Alert>
-
-          <div class="flex flex-wrap gap-2">
-            <Button size="sm" @click="saveForm">{{ editingId ? "Save" : "Add" }}</Button>
-            <Button size="sm" variant="outline" @click="resetForm">
-              <RotateCcw data-icon="inline-start" />
-              Clear
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <CardTitle>{{ currentTypeLabel }} Positions</CardTitle>
-              <CardDescription>{{ filtered.length }} visible position{{ filtered.length === 1 ? "" : "s" }}</CardDescription>
-            </div>
-            <div class="flex flex-col gap-2 md:flex-row md:items-center">
-              <Tabs v-model="posType" class="w-full md:w-auto">
-                <TabsList class="grid w-full grid-cols-3 md:w-80">
-                  <TabsTrigger value="sbo">SBO</TabsTrigger>
-                  <TabsTrigger value="classroom">Classroom</TabsTrigger>
-                  <TabsTrigger value="club">Club</TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <div class="relative">
-                <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input v-model="query" class="pl-10 md:w-56" type="text" placeholder="Search positions" />
-              </div>
-              <label class="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
-                <Checkbox
-                  :model-value="showArchived"
-                  @update:model-value="(value) => (showArchived = !!value)"
-                />
-                Archived
-              </label>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent class="flex flex-col gap-3">
-          <div v-if="selected.size" class="flex flex-col gap-2 rounded-lg border border-border bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
-            <span class="text-sm text-muted-foreground">{{ selected.size }} selected</span>
-            <Button size="sm" variant="destructive" @click="showBulkDelete = true">
-              <Trash2 data-icon="inline-start" />
-              Delete or archive
-            </Button>
-          </div>
-
-          <div class="overflow-x-auto rounded-lg border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead class="w-10">
-                    <Checkbox
-                      :model-value="selected.size === filtered.length && filtered.length > 0"
-                      @update:model-value="toggleAll"
-                    />
-                  </TableHead>
-                  <TableHead>#</TableHead>
-                  <TableHead>Position</TableHead>
-                  <TableHead>Max</TableHead>
-                  <TableHead>Candidates</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead class="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow
-                  v-for="position in filtered"
-                  :key="position.id"
-                  :data-state="selected.has(position.id) ? 'selected' : undefined"
-                >
-                  <TableCell>
-                    <Checkbox
-                      :model-value="selected.has(position.id)"
-                      @update:model-value="() => toggle(position.id)"
-                    />
-                  </TableCell>
-                  <TableCell>{{ position.order }}</TableCell>
-                  <TableCell class="font-medium">{{ position.name }}</TableCell>
-                  <TableCell>{{ position.maxVote }}</TableCell>
-                  <TableCell>{{ candidateCount(position.id) }}</TableCell>
-                  <TableCell>
-                    <Badge :variant="position.archived ? 'destructive' : 'secondary'">
-                      {{ position.archived ? "Archived" : "Active" }}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div class="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" @click="editPosition(position)">
-                        <Edit3 data-icon="inline-start" />
-                        Edit
-                      </Button>
-                      <Button v-if="position.archived" size="sm" variant="secondary" @click="restore(position.id)">
-                        Restore
-                      </Button>
-                      <Button v-else size="sm" variant="destructive" @click="deleteTarget = position">
-                        <Trash2 data-icon="inline-start" />
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-                <TableRow v-if="!filtered.length">
-                  <TableCell colspan="7" class="py-8 text-center text-muted-foreground">
-                    No positions found.
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+    <!-- Edit overlay -->
+    <div v-if="editTarget" class="modal-overlay" @click.self="editTarget=null">
+      <div class="modal-box" @click.stop>
+        <div class="modal-box-header"><h3>Edit Position</h3><button class="modal-box-close" @click="editTarget=null"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+        <div class="modal-box-body">
+          <div class="form-group"><label>Name</label><input type="text" v-model="editForm.name" /></div>
+          <div class="form-group"><label>Type</label><select v-model="editForm.type"><option value="sbo">SBO</option><option value="classroom">Classroom</option><option value="club">Club</option></select></div>
+          <div class="form-group"><label>Order</label><input type="number" v-model="editForm.order" /></div>
+          <div class="form-group"><label>Max Vote</label><input type="number" v-model="editForm.maxVote" /></div>
+          <div class="form-group"><label class="checkbox-label"><input type="checkbox" v-model="editForm.filterByGrade" /> Filter candidates by voter's grade</label></div>
+        </div>
+        <div class="modal-box-footer">
+          <button class="btn btn-sm btn-secondary" @click="editTarget=null">Cancel</button>
+          <button class="btn btn-sm btn-primary" @click="saveEdit">Save</button>
+        </div>
+      </div>
     </div>
 
-    <ModalDialog
-      :visible="!!deleteTarget"
-      title="Delete Position"
-      :message="deleteTarget ? `Delete or archive ${deleteTarget.name}? Positions with votes are archived to preserve results.` : ''"
-      confirmText="Continue"
-      confirmClass="btn-danger"
-      @confirm="confirmDelete"
-      @cancel="deleteTarget = null"
-    />
-    <ModalDialog
-      :visible="showBulkDelete"
-      title="Delete Positions"
-      message="Delete positions without votes and archive positions with votes?"
-      confirmText="Continue"
-      confirmClass="btn-danger"
-      @confirm="confirmBulkDelete"
-      @cancel="showBulkDelete = false"
-    />
+    <!-- Add overlay -->
+    <div v-if="showAddForm" class="modal-overlay" @click.self="showAddForm=false">
+      <div class="modal-box" @click.stop>
+        <div class="modal-box-header"><h3>Add Position</h3><button class="modal-box-close" @click="showAddForm=false"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+        <div class="modal-box-body">
+          <div class="form-group"><label>Name</label><input ref="addInputRef" type="text" v-model="addForm.name" placeholder="Position name" @keydown.enter="saveAdd" /></div>
+          <div class="form-group"><label>Type</label><select v-model="addForm.type"><option value="sbo">SBO</option><option value="classroom">Classroom</option><option value="club">Club</option></select></div>
+          <div class="form-group"><label>Order</label><input type="number" v-model="addForm.order" /></div>
+          <div class="form-group"><label>Max Vote</label><input type="number" v-model="addForm.maxVote" /></div>
+          <div class="form-group"><label class="checkbox-label"><input type="checkbox" v-model="addForm.filterByGrade" /> Filter candidates by voter's grade</label></div>
+        </div>
+        <div class="modal-box-footer">
+          <button class="btn btn-sm btn-secondary" @click="showAddForm=false">Cancel</button>
+          <button class="btn btn-sm btn-primary" @click="saveAdd">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <ModalDialog :visible="showDelModal" title="Delete Position" :message="delMsg" confirmText="Delete" confirmClass="btn-danger" @confirm="confirmDel" @cancel="showDelModal=false" />
+
+    <!-- Copy modal -->
+    <div v-if="showCopyModal" class="modal-overlay" @click.self="showCopyModal=false">
+      <div class="modal-box" @click.stop>
+        <div class="modal-box-header"><h3>Copy Positions to...</h3><button class="modal-box-close" @click="showCopyModal=false"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+        <div class="modal-box-body">
+          <div class="form-group"><label>Target Year</label><select v-model="copyTargetYear"><option v-for="y in otherYears" :key="y" :value="y">{{ y }}</option></select></div>
+          <p class="text-sm text-muted">This will replace all positions in {{ copyTargetYear }} with the current {{ state.year }} positions. Candidates are not copied.</p>
+        </div>
+        <div class="modal-box-footer">
+          <button class="btn btn-sm btn-secondary" @click="showCopyModal=false">Cancel</button>
+          <button class="btn btn-sm btn-primary" @click="copyPositions">Copy</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<script setup>
+import { ref, computed, reactive, nextTick, watch } from 'vue'
+import { state, getPositions, getCandidates, saveSync, toggleTheme } from '../store/index.js'
+import { DB } from '../db/index.js'
+import ModalDialog from './ModalDialog.vue'
+import Toggle from '../components/base/toggle/toggle.vue'
+
+const posType = ref(state.candTabType || 'sbo')
+
+watch(posType, v => { state.candTabType = v })
+
+const filtered = computed(() => getPositions().filter(p => (p.type || 'sbo') === posType.value))
+
+const showDelModal = ref(false)
+const delId = ref(null)
+const delMsg = ref('')
+const selected = reactive(new Set())
+const busyBulk = ref(false)
+const editTarget = ref(null)
+const editForm = reactive({ name: '', type: 'sbo', order: 1, maxVote: 1, filterByGrade: false })
+const showAddForm = ref(false)
+const addForm = reactive({ name: '', type: 'sbo', order: 1, maxVote: 1, filterByGrade: false })
+const addInputRef = ref(null)
+const showCopyModal = ref(false)
+const copyTargetYear = ref('')
+
+const otherYears = computed(() => state.years.filter(y => y !== state.year))
+
+function toggle(id) { selected.has(id) ? selected.delete(id) : selected.add(id) }
+function toggleAll(checked, items) { checked ? items.forEach(p => selected.add(p.id)) : selected.clear() }
+
+function bulkDelete() {
+  if (!confirm('Delete ' + selected.size + ' selected position(s) and their candidates?')) return
+  busyBulk.value = true
+  state.data.positions = state.data.positions.filter(p => !selected.has(p.id))
+  state.data.candidates = state.data.candidates.filter(c => !selected.has(c.positionId))
+  selected.clear(); busyBulk.value = false; saveSync()
+}
+
+function cands(posId) { return getCandidates(posId) }
+
+function copyFromSBO() {
+  if (!confirm('Copy all SBO positions to ' + posType.value + '? This will not affect existing ' + posType.value + ' positions.')) return
+  busyBulk.value = true
+  const sboPositions = getPositions().filter(p => (p.type || 'sbo') === 'sbo')
+  sboPositions.forEach(p => {
+    state.data.positions.push({
+      id: 'pos_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+      name: p.name, type: posType.value,
+      order: p.order, maxVote: p.maxVote,
+    })
+  })
+  busyBulk.value = false; saveSync()
+}
+
+function openCopy() {
+  copyTargetYear.value = otherYears.value[0] || ''
+  showCopyModal.value = true
+}
+
+function openAdd() {
+  addForm.name = ''
+  addForm.type = posType.value
+  addForm.maxVote = 1
+  addForm.filterByGrade = false
+  const maxOrder = state.data.positions.reduce((m, p) => Math.max(m, p.order), 0)
+  addForm.order = maxOrder + 1
+  showAddForm.value = true
+  nextTick(() => addInputRef.value?.focus())
+}
+
+function saveAdd() {
+  if (!addForm.name.trim()) return
+  const d = state.data
+  d.positions.push({ id: 'pos_' + Date.now(), name: addForm.name.trim(), type: addForm.type, order: Number(addForm.order) || 1, maxVote: Number(addForm.maxVote) || 1, filterByGrade: addForm.filterByGrade })
+  saveSync()
+  showAddForm.value = false
+}
+
+function editPos(pos) {
+  editTarget.value = pos
+  editForm.name = pos.name
+  editForm.type = pos.type || 'sbo'
+  editForm.order = pos.order
+  editForm.maxVote = pos.maxVote
+  editForm.filterByGrade = !!pos.filterByGrade
+}
+
+function saveEdit() {
+  if (!editForm.name.trim()) return
+  editTarget.value.name = editForm.name.trim()
+  editTarget.value.type = editForm.type
+  editTarget.value.order = Number(editForm.order) || 1
+  editTarget.value.maxVote = Number(editForm.maxVote) || 1
+  editTarget.value.filterByGrade = editForm.filterByGrade
+  editTarget.value = null
+  saveSync()
+}
+
+function delPos(id) {
+  const p = state.data.positions.find(x => x.id === id)
+  if (!p) return
+  delId.value = id
+  delMsg.value = 'Delete "' + p.name + '" and all its candidates?'
+  showDelModal.value = true
+}
+
+function confirmDel() {
+  state.data.positions = state.data.positions.filter(x => x.id !== delId.value)
+  state.data.candidates = state.data.candidates.filter(x => x.positionId !== delId.value)
+  delId.value = null
+  showDelModal.value = false
+  saveSync()
+}
+
+async function copyPositions() {
+  const target = copyTargetYear.value
+  if (!target || target === state.year) return
+  const targetData = await DB.get(target)
+  if (!targetData) return
+  targetData.positions = state.data.positions.map(p => ({ ...p, id: 'pos_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5) }))
+  targetData.candidates = []
+  await DB.save(target, targetData)
+  showCopyModal.value = false
+  alert('Positions copied to ' + target + '.')
+}
+</script>

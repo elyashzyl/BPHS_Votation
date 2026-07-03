@@ -1,127 +1,69 @@
+<template>
+  <div class="home-wrapper fade-in">
+    <div class="home-inner">
+      <div class="home-hero">
+        <div class="home-hero-logo">
+          <img src="/bphs-logo.jpg" alt="BPHS">
+        </div>
+        <h1 class="home-hero-title">Baguio Patriotic High School</h1>
+        <p class="home-hero-sub">{{ state.data?.settings?.title || 'SBO Election' }} &middot; School Year {{ state.year }}</p>
+      </div>
+      <div class="home-tools">
+        <Toggle :model-value="state.isDark" @update:model-value="toggleTheme" slim :label="state.isDark ? 'Dark mode' : 'Light mode'" hint="Switch between light and dark theme." size="sm" />
+      </div>
+      <div class="home-options">
+        <div class="home-card" @click="goVote('sbo')">
+          <div class="home-card-accent"></div>
+          <div class="home-card-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="10" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M10 10V6a4 4 0 018 0v4M14 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 18a4 4 0 01-8 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <h2>Vote SBO</h2>
+          <p class="text-sm text-muted">Cast your vote for SBO officers</p>
+        </div>
+        <div class="home-card" @click="goVote('classroom')">
+          <div class="home-card-accent" style="background:var(--green)"></div>
+          <div class="home-card-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="3" y="5" width="22" height="18" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M10 11h8M10 15h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="20" r="1.5" stroke="currentColor" stroke-width="1.8"/></svg></div>
+          <h2>Vote Classroom</h2>
+          <p class="text-sm text-muted">Vote for your class officers</p>
+        </div>
+        <div class="home-card" @click="goVote('club')">
+          <div class="home-card-accent" style="background:var(--orange)"></div>
+          <div class="home-card-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4l2.5 5.2 5.8.8-4.2 4.1 1 5.9L14 16.5l-5.1 2.7 1-5.9-4.2-4.1 5.8-.8L14 4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+          <h2>Vote Club Officers</h2>
+          <p class="text-sm text-muted">Vote for your club officers</p>
+        </div>
+        <div class="home-card" @click="goAdmin">
+          <div class="home-card-accent" style="background:var(--red)"></div>
+          <div class="home-card-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="4" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M14 2v3M14 23v3M2 14h3M23 14h3M5.5 5.5l2 2M20.5 20.5l2 2M5.5 22.5l2-2M20.5 7.5l2-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <h2>Admin Panel</h2>
+          <p class="text-sm text-muted">Manage candidates &amp; view results</p>
+        </div>
+      </div>
+      <div class="home-footer">
+        <div class="home-dot" style="background:var(--red)"></div>
+        <div class="home-dot" style="background:var(--yellow)"></div>
+        <div class="home-dot" style="background:var(--green)"></div>
+        <div class="home-dot" style="background:var(--orange)"></div>
+        <div class="home-dot" style="background:var(--blue)"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup>
-import { computed, shallowRef } from "vue";
-import { useRouter } from "vue-router";
-import { LockKeyhole, MonitorCog, ShieldCheck, Sparkles, Trophy, UsersRound } from "lucide-vue-next";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { state, getSettings, toggleTheme } from "../store/index.js";
+import { useRouter } from 'vue-router'
+import { state, getSettings, toggleTheme } from '../store/index.js'
+import Toggle from '../components/base/toggle/toggle.vue'
 
-const router = useRouter();
-const closedMessage = shallowRef("");
+const router = useRouter()
 
-const electionTitle = computed(() => state.data?.settings?.title || "SBO Election");
-const modeLabel = computed(() => (state.isDark ? "Dark mode" : "Light mode"));
-
-const votingOptions = computed(() => [
-  {
-    id: "sbo",
-    title: "Vote SBO",
-    description: "Choose the student body officers for the school year.",
-    activeKey: "sboActive",
-    icon: ShieldCheck,
-    badge: "Schoolwide",
-  },
-  {
-    id: "classroom",
-    title: "Vote Classroom",
-    description: "Vote for officers in your grade and section.",
-    activeKey: "classroomActive",
-    icon: UsersRound,
-    badge: "By section",
-  },
-  {
-    id: "club",
-    title: "Vote Club Officers",
-    description: "Select the officers for your club.",
-    activeKey: "clubActive",
-    icon: Trophy,
-    badge: "By club",
-  },
-]);
-
-function goVote(option) {
-  const settings = getSettings();
-  if (!settings[option.activeKey]) {
-    closedMessage.value = `${option.title.replace("Vote ", "")} voting is currently closed.`;
-    return;
-  }
-
-  closedMessage.value = "";
-  state.electionType = option.id;
-  router.push("/vote/login");
+function goVote(type) {
+  const s = getSettings()
+  const key = type === 'sbo' ? 'sboActive' : type === 'classroom' ? 'classroomActive' : 'clubActive'
+  if (!s[key]) { alert(type.charAt(0).toUpperCase() + type.slice(1) + ' voting is closed.'); return }
+  state.electionType = type
+  router.push('/vote/login')
 }
 
 function goAdmin() {
-  router.push("/admin/login");
+  router.push('/admin/login')
 }
 </script>
-
-<template>
-  <main class="min-h-screen bg-background px-4 py-8 text-foreground md:px-8">
-    <section class="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col justify-center gap-6">
-      <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div class="flex max-w-3xl flex-col gap-4">
-          <div class="flex items-center gap-3">
-            <img class="size-14 rounded-lg border border-border object-cover" src="/bphs-logo.jpg" alt="BPHS" />
-            <div>
-              <Badge variant="outline">School Year {{ state.year }}</Badge>
-              <h1 class="mt-2 text-3xl font-semibold leading-tight md:text-5xl">
-                Baguio Patriotic High School
-              </h1>
-            </div>
-          </div>
-          <p class="text-base text-muted-foreground md:text-lg">
-            {{ electionTitle }} voting portal
-          </p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
-          <Button variant="outline" @click="toggleTheme">
-            <Sparkles data-icon="inline-start" />
-            {{ modeLabel }}
-          </Button>
-          <Button variant="secondary" @click="goAdmin">
-            <MonitorCog data-icon="inline-start" />
-            Admin
-          </Button>
-        </div>
-      </div>
-
-      <Alert v-if="closedMessage" variant="destructive">
-        <LockKeyhole />
-        <AlertTitle>Voting closed</AlertTitle>
-        <AlertDescription>{{ closedMessage }}</AlertDescription>
-      </Alert>
-
-      <div class="grid gap-4 md:grid-cols-3">
-        <Card
-          v-for="option in votingOptions"
-          :key="option.id"
-          class="cursor-pointer transition hover:-translate-y-1 hover:ring-primary/40"
-          role="button"
-          tabindex="0"
-          @click="goVote(option)"
-          @keydown.enter.prevent="goVote(option)"
-        >
-          <CardHeader>
-            <div class="flex items-center justify-between gap-3">
-              <div class="rounded-lg border border-border bg-muted p-2">
-                <component :is="option.icon" />
-              </div>
-              <Badge variant="secondary">{{ option.badge }}</Badge>
-            </div>
-            <CardTitle>{{ option.title }}</CardTitle>
-            <CardDescription>{{ option.description }}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button class="w-full" variant="outline">
-              Start ballot
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </section>
-  </main>
-</template>

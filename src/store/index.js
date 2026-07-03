@@ -1,253 +1,42 @@
-import { reactive } from "vue";
-import { DB } from "../db/index.js";
-import { Device } from "../utils/device.js";
-import {
-  activePositions,
-  archiveOrDeleteCandidate,
-  archiveOrDeletePosition,
-  makeId,
-  restoreCandidate as restoreCandidateRecord,
-  restorePosition as restorePositionRecord,
-  scopedCandidates,
-  tallyResults,
-  validateBallotSelections,
-  validateCandidateInput,
-  validatePositionInput,
-} from "../utils/electionIntegrity.js";
-
-function defaultPositions() {
-  return [
-    {
-      id: "pos_sbo_president",
-      name: "SBO President",
-      order: 1,
-      maxVote: 1,
-      type: "sbo",
-    },
-    {
-      id: "pos_sbo_vp",
-      name: "Vice President",
-      order: 2,
-      maxVote: 1,
-      type: "sbo",
-    },
-    {
-      id: "pos_sbo_secretary",
-      name: "Secretary",
-      order: 3,
-      maxVote: 1,
-      type: "sbo",
-    },
-    {
-      id: "pos_sbo_treasurer",
-      name: "Treasurer",
-      order: 4,
-      maxVote: 1,
-      type: "sbo",
-    },
-    {
-      id: "pos_sbo_auditor",
-      name: "Auditor",
-      order: 5,
-      maxVote: 1,
-      type: "sbo",
-    },
-    { id: "pos_sbo_pro", name: "P.R.O.", order: 6, maxVote: 1, type: "sbo" },
-    {
-      id: "pos_sbo_male_sgt",
-      name: "Male Sergeant at Arms",
-      order: 7,
-      maxVote: 1,
-      type: "sbo",
-    },
-    {
-      id: "pos_sbo_female_sgt",
-      name: "Female Sergeant at Arms",
-      order: 8,
-      maxVote: 1,
-      type: "sbo",
-    },
-    {
-      id: "pos_sbo_g710_rep",
-      name: "Grade 7-10 Representative",
-      order: 9,
-      maxVote: 2,
-      type: "sbo",
-      filterByGrade: true,
-    },
-    {
-      id: "pos_sbo_chinese_rep",
-      name: "Chinese Representative",
-      order: 10,
-      maxVote: 1,
-      type: "sbo",
-    },
-    {
-      id: "pos_classroom_president",
-      name: "Class President",
-      order: 1,
-      maxVote: 1,
-      type: "classroom",
-    },
-    {
-      id: "pos_classroom_vp",
-      name: "Class Vice President",
-      order: 2,
-      maxVote: 1,
-      type: "classroom",
-    },
-    {
-      id: "pos_classroom_secretary",
-      name: "Class Secretary",
-      order: 3,
-      maxVote: 1,
-      type: "classroom",
-    },
-    {
-      id: "pos_classroom_treasurer",
-      name: "Class Treasurer",
-      order: 4,
-      maxVote: 1,
-      type: "classroom",
-    },
-    {
-      id: "pos_classroom_pro",
-      name: "Class P.R.O.",
-      order: 5,
-      maxVote: 1,
-      type: "classroom",
-    },
-    {
-      id: "pos_club_president",
-      name: "Club President",
-      order: 1,
-      maxVote: 1,
-      type: "club",
-    },
-    {
-      id: "pos_club_vp",
-      name: "Club Vice President",
-      order: 2,
-      maxVote: 1,
-      type: "club",
-    },
-    {
-      id: "pos_club_secretary",
-      name: "Club Secretary",
-      order: 3,
-      maxVote: 1,
-      type: "club",
-    },
-    {
-      id: "pos_club_treasurer",
-      name: "Club Treasurer",
-      order: 4,
-      maxVote: 1,
-      type: "club",
-    },
-  ];
-}
-
-function defaultSettings() {
-  return {
-    title: "SBO Election",
-    sboActive: true,
-    classroomActive: true,
-    clubActive: true,
-    adminPassword: "admin123",
-    grades: ["7", "8", "9", "10"],
-    sectionsByGrade: {
-      7: ["Pine", "Molave"],
-      8: ["Cypress"],
-      9: ["Kamagong", "Mahogany"],
-      10: ["Acacia", "Yakal"],
-    },
-    clubs: ["English Club", "Science Club", "Math Club"],
-  };
-}
+import { reactive } from 'vue'
+import { DB } from '../db/index.js'
+import { Device } from '../utils/device.js'
 
 export function freshData() {
   return {
-    positions: defaultPositions(),
+    positions: [
+      { id: 'pos_president', name: 'SBO President', order: 1, maxVote: 1, type: 'sbo' },
+      { id: 'pos_vp', name: 'Vice President', order: 2, maxVote: 1, type: 'sbo' },
+      { id: 'pos_secretary', name: 'Secretary', order: 3, maxVote: 1, type: 'sbo' },
+      { id: 'pos_treasurer', name: 'Treasurer', order: 4, maxVote: 1, type: 'sbo' },
+      { id: 'pos_auditor', name: 'Auditor', order: 5, maxVote: 1, type: 'sbo' },
+      { id: 'pos_pro', name: 'P.R.O.', order: 6, maxVote: 1, type: 'sbo' },
+      { id: 'pos_male_sgt', name: 'Male Sergeant at Arms', order: 7, maxVote: 1, type: 'sbo' },
+      { id: 'pos_female_sgt', name: 'Female Sergeant at Arms', order: 8, maxVote: 1, type: 'sbo' },
+      { id: 'pos_g710_rep', name: 'Grade 7-10 Representative', order: 9, maxVote: 2, type: 'sbo', filterByGrade: true },
+      { id: 'pos_chinese_rep', name: 'Chinese Representative', order: 10, maxVote: 1, type: 'sbo' },
+    ],
     candidates: [],
     voters: [],
     votes: [],
     votedDevices: [],
     reports: [],
-    settings: defaultSettings(),
-    adminAuthRequired: false,
-  };
-}
-
-function normalizeData(data) {
-  const fresh = freshData();
-  const normalized = {
-    ...fresh,
-    ...data,
-    settings: { ...fresh.settings, ...(data?.settings || {}) },
-  };
-
-  normalized.positions = Array.isArray(normalized.positions)
-    ? normalized.positions
-    : [];
-  normalized.candidates = Array.isArray(normalized.candidates)
-    ? normalized.candidates
-    : [];
-  normalized.voters = Array.isArray(normalized.voters) ? normalized.voters : [];
-  normalized.votes = Array.isArray(normalized.votes) ? normalized.votes : [];
-  normalized.votedDevices = Array.isArray(normalized.votedDevices)
-    ? normalized.votedDevices
-    : [];
-  normalized.reports = Array.isArray(normalized.reports)
-    ? normalized.reports
-    : [];
-  normalized.settings.grades = Array.isArray(normalized.settings.grades)
-    ? normalized.settings.grades
-    : fresh.settings.grades;
-  normalized.settings.sectionsByGrade =
-    normalized.settings.sectionsByGrade || fresh.settings.sectionsByGrade;
-  normalized.settings.clubs = Array.isArray(normalized.settings.clubs)
-    ? normalized.settings.clubs
-    : fresh.settings.clubs;
-
-  const defaultByType = defaultPositions().reduce((grouped, position) => {
-    grouped[position.type] = grouped[position.type] || [];
-    grouped[position.type].push(position);
-    return grouped;
-  }, {});
-
-  Object.entries(defaultByType).forEach(([type, positions]) => {
-    const hasType = normalized.positions.some(
-      (position) => (position.type || "sbo") === type,
-    );
-    if (!hasType) {
-      normalized.positions.push(...positions);
-    }
-  });
-
-  normalized.positions.forEach((position) => {
-    position.type = position.type || "sbo";
-    position.order = Number(position.order) || 1;
-    position.maxVote = Math.max(1, Number(position.maxVote) || 1);
-    if (
-      position.type === "sbo" &&
-      /grade/i.test(position.name) &&
-      /representative/i.test(position.name)
-    ) {
-      position.filterByGrade = true;
-    } else if (position.filterByGrade !== true) {
-      delete position.filterByGrade;
-    }
-    position.archived = !!position.archived;
-    position.archivedAt = position.archivedAt || "";
-  });
-
-  normalized.candidates.forEach((candidate) => {
-    candidate.archived = !!candidate.archived;
-    candidate.archivedAt = candidate.archivedAt || "";
-  });
-
-  return normalized;
+    settings: {
+      title: 'SBO Election',
+      sboActive: true,
+      classroomActive: true,
+      clubActive: true,
+      adminPassword: 'admin123',
+      grades: ['7', '8', '9', '10'],
+      sectionsByGrade: {
+        '7': ['Pine', 'Molave'],
+        '8': ['Cypress'],
+        '9': ['Kamagong', 'Mahogany'],
+        '10': ['Acacia', 'Yakal'],
+      },
+      clubs: ['English Club', 'Science Club', 'Math Club'],
+    },
+  }
 }
 
 export const state = reactive({
@@ -255,767 +44,239 @@ export const state = reactive({
   years: [],
   data: null,
   loading: true,
-  isDark: document.documentElement.getAttribute("data-theme") === "dark",
-  voter: { name: "", grade: "7", section: "", club: "" },
-  electionType: "sbo",
+  isDark: document.documentElement.getAttribute('data-theme') === 'dark',
+  voter: { name: '', grade: '7', section: '' },
+  electionType: 'sbo',
   selectedVotes: {},
-  loginError: "",
-  adminPass: "",
-  adminLoginError: "",
-  adminEmail: "",
-  adminSetupWarning: "",
-  adminView: "dashboard",
+  loginError: '',
+  adminPass: '',
+  adminLoginError: '',
+  adminView: 'dashboard',
   isAdmin: false,
   candTabPosId: null,
-  candTabType: "sbo",
-  logFilter: { grade: "", section: "" },
-  settingsForm: {
-    title: "",
-    adminPassword: "",
-    sboActive: true,
-    classroomActive: true,
-    clubActive: true,
-    gradesStr: "",
-    sectionsByGradeStr: {},
-    clubsStr: "",
-  },
-});
+  candTabType: 'sbo',
+  logFilter: { grade: '', section: '' },
+  settingsForm: { title: '', adminPassword: '', sboActive: true, classroomActive: true, clubActive: true, gradesStr: '', sectionsByGradeStr: {}, clubsStr: '' },
+})
 
 export function toggleTheme() {
-  state.isDark = !state.isDark;
-  const t = state.isDark ? "dark" : "light";
-  document.documentElement.setAttribute("data-theme", t);
-  localStorage.setItem("sbo_theme", t);
+  state.isDark = !state.isDark
+  const t = state.isDark ? 'dark' : 'light'
+  document.documentElement.setAttribute('data-theme', t)
+  localStorage.setItem('sbo_theme', t)
 }
 
 export function getPositions() {
-  return state.data
-    ? [...state.data.positions].sort(
-        (a, b) =>
-          (a.type || "sbo").localeCompare(b.type || "sbo") || a.order - b.order,
-      )
-    : [];
-}
-
-export function getActivePositions(type = state.electionType) {
-  return activePositions(state.data, type);
+  return state.data ? [...state.data.positions].sort((a, b) => a.order - b.order) : []
 }
 
 export function getPositionsByType(type) {
-  return getPositions().filter((p) => (p.type || "sbo") === type);
+  return getPositions().filter(p => (p.type || 'sbo') === type)
 }
 
 export function getCandidates(posId) {
-  return state.data
-    ? state.data.candidates.filter((c) => c.positionId === posId)
-    : [];
-}
-
-export function getActiveCandidates(posId, voter = state.voter) {
-  const position = state.data?.positions?.find((item) => item.id === posId);
-  return position ? scopedCandidates(state.data, position, voter) : [];
+  return state.data ? state.data.candidates.filter(c => c.positionId === posId) : []
 }
 
 export function getAllCandidates() {
-  return state.data ? [...state.data.candidates] : [];
+  return state.data ? [...state.data.candidates] : []
 }
 
 export function getSettings() {
-  return state.data ? state.data.settings : defaultSettings();
+  return state.data ? state.data.settings : {}
 }
 
 export function getVoters() {
-  return state.data
-    ? [...state.data.voters].sort(
-        (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0),
-      )
-    : [];
+  return state.data ? [...state.data.voters] : []
 }
 
 export function getVotes() {
-  return state.data ? [...state.data.votes] : [];
+  return state.data ? [...state.data.votes] : []
 }
 
 export function getStats() {
-  if (!state.data)
-    return { totalVoters: 0, totalVotes: 0, positions: {}, byType: {} };
-  const positions = getPositions();
-  const byType = ["sbo", "classroom", "club"].reduce((carry, type) => {
-    const voters = state.data.voters.filter(
-      (v) => (v.electionType || "sbo") === type,
-    );
-    const voterIds = new Set(voters.map((v) => v.id));
-    carry[type] = {
-      voters: voters.length,
-      votes: state.data.votes.filter((v) => voterIds.has(v.voterId)).length,
-      positions: positions.filter((p) => (p.type || "sbo") === type).length,
-      candidates: state.data.candidates.filter((candidate) =>
-        positions.some(
-          (position) =>
-            position.id === candidate.positionId &&
-            (position.type || "sbo") === type,
-        ),
-      ).length,
-    };
-    return carry;
-  }, {});
-  const s = {
-    totalVoters: state.data.voters.length,
-    totalVotes: state.data.votes.length,
-    positions: tallyResults(state.data),
-    byType,
-  };
-  return s;
+  if (!state.data) return { totalVoters: 0, totalVotes: 0, positions: {} }
+  const positions = getPositions()
+  const s = { totalVoters: state.data.voters.length, totalVotes: state.data.votes.length, positions: {} }
+  positions.forEach(p => {
+    const votes = state.data.votes.filter(v => v.positionId === p.id)
+    const candidates = state.data.candidates.filter(c => c.positionId === p.id)
+    s.positions[p.id] = {
+      name: p.name, totalVotes: votes.length,
+      candidates: candidates.map(c => ({ ...c, votes: votes.filter(v => v.candidateId === c.id).length })).sort((a, b) => b.votes - a.votes)
+    }
+  })
+  return s
 }
 
 export function getFilteredVotes(filters = {}) {
-  if (!state.data) return [];
-  let voters = [...state.data.voters];
-  if (filters.grade) voters = voters.filter((v) => v.grade === filters.grade);
-  if (filters.section)
-    voters = voters.filter((v) => v.section === filters.section);
-  const ids = new Set(voters.map((v) => v.id));
-  return state.data.votes
-    .filter((v) => ids.has(v.voterId))
-    .map((v) => {
-      const voter = state.data.voters.find((x) => x.id === v.voterId) || {};
-      const candidate =
-        state.data.candidates.find((x) => x.id === v.candidateId) || {};
-      const position =
-        state.data.positions.find((x) => x.id === v.positionId) || {};
-      return {
-        voterName: voter.name || "",
-        grade: voter.grade || "",
-        section: voter.section || "",
-        candidateName: candidate.name || "",
-        positionName: position.name || "",
-        timestamp: v.timestamp,
-      };
-    });
+  if (!state.data) return []
+  let voters = [...state.data.voters]
+  if (filters.grade) voters = voters.filter(v => v.grade === filters.grade)
+  if (filters.section) voters = voters.filter(v => v.section === filters.section)
+  const ids = new Set(voters.map(v => v.id))
+  return state.data.votes.filter(v => ids.has(v.voterId)).map(v => {
+    const voter = state.data.voters.find(x => x.id === v.voterId) || {}
+    const candidate = state.data.candidates.find(x => x.id === v.candidateId) || {}
+    const position = state.data.positions.find(x => x.id === v.positionId) || {}
+    return { voterName: voter.name || '', grade: voter.grade || '', section: voter.section || '', candidateName: candidate.name || '', positionName: position.name || '', timestamp: v.timestamp }
+  })
 }
 
 export function getSections(grade) {
-  return state.data?.settings?.sectionsByGrade?.[grade] || [];
+  return state.data?.settings?.sectionsByGrade?.[grade] || []
 }
 
 export function getAllSections() {
-  if (!state.data) return [];
-  const all = [];
-  const g = state.data.settings.grades || [];
-  g.forEach((g) => {
-    (state.data.settings.sectionsByGrade?.[g] || []).forEach((s) => {
-      if (!all.includes(s)) all.push(s);
-    });
-  });
-  return all;
+  if (!state.data) return []
+  const all = []
+  const g = state.data.settings.grades || []
+  g.forEach(g => { (state.data.settings.sectionsByGrade?.[g] || []).forEach(s => { if (!all.includes(s)) all.push(s) }) })
+  return all
 }
 
 export function getClubs() {
-  return state.data?.settings?.clubs || [];
+  return state.data?.settings?.clubs || []
 }
 
 export function getReports() {
-  return state.data?.reports
-    ? [...state.data.reports].sort(
-        (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0),
-      )
-    : [];
-}
-
-export async function createPosition(fields) {
-  if (!state.data) return { ok: false, error: "Election data is not loaded." };
-  const validation = validatePositionInput(fields);
-  if (!validation.ok) return validation;
-
-  state.data.positions.push({
-    id: makeId("pos"),
-    ...validation.value,
-    archived: false,
-    archivedAt: "",
-  });
-  await saveSync();
-  return { ok: true };
-}
-
-export async function updatePosition(id, fields) {
-  if (!state.data) return { ok: false, error: "Election data is not loaded." };
-  const target = state.data.positions.find((position) => position.id === id);
-  if (!target) return { ok: false, error: "Position not found." };
-
-  const validation = validatePositionInput(fields);
-  if (!validation.ok) return validation;
-
-  Object.assign(target, validation.value);
-  await saveSync();
-  return { ok: true };
-}
-
-export async function removePosition(id) {
-  const result = archiveOrDeletePosition(state.data, id);
-  await saveSync();
-  return { ok: true, ...result };
-}
-
-export async function restorePosition(id) {
-  restorePositionRecord(state.data, id);
-  await saveSync();
-  return { ok: true };
-}
-
-export async function removePositions(ids) {
-  const summary = { archived: 0, deleted: 0 };
-  ids.forEach((id) => {
-    const result = archiveOrDeletePosition(state.data, id);
-    if (result.action === "archived") summary.archived++;
-    if (result.action === "deleted") summary.deleted++;
-  });
-  await saveSync();
-  return { ok: true, ...summary };
-}
-
-export async function createCandidate(fields) {
-  if (!state.data) return { ok: false, error: "Election data is not loaded." };
-  const validation = validateCandidateInput(state.data, fields);
-  if (!validation.ok) return validation;
-
-  state.data.candidates.push({
-    id: makeId("cand"),
-    ...validation.value,
-    archived: false,
-    archivedAt: "",
-  });
-  await saveSync();
-  return { ok: true };
-}
-
-export async function updateCandidate(id, fields) {
-  if (!state.data) return { ok: false, error: "Election data is not loaded." };
-  const target = state.data.candidates.find((candidate) => candidate.id === id);
-  if (!target) return { ok: false, error: "Candidate not found." };
-
-  const validation = validateCandidateInput(state.data, {
-    ...target,
-    ...fields,
-    positionId: fields.positionId || target.positionId,
-  });
-  if (!validation.ok) return validation;
-
-  Object.assign(target, validation.value);
-  await saveSync();
-  return { ok: true };
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => resolve(event.target.result);
-    reader.onerror = () => reject(new Error("Unable to read the selected image."));
-    reader.readAsDataURL(file);
-  });
-}
-
-export async function setCandidatePhoto(id, image) {
-  const target = state.data?.candidates?.find((candidate) => candidate.id === id);
-  if (!target) return { ok: false, error: "Candidate not found." };
-
-  if (image && typeof image !== "string") {
-    const upload = await DB.uploadCandidatePhoto(state.year, id, image);
-    if (upload.ok) {
-      target.image = upload.url;
-      await saveSync();
-      return { ok: true, storage: "supabase" };
-    }
-    if (!upload.fallback) {
-      return { ok: false, error: upload.error || "Unable to upload candidate photo." };
-    }
-    target.image = await readFileAsDataUrl(image);
-    await saveSync();
-    return { ok: true, storage: "local" };
-  }
-
-  target.image = image || "";
-  await saveSync();
-  return { ok: true };
-}
-
-export async function removeCandidate(id) {
-  const result = archiveOrDeleteCandidate(state.data, id);
-  await saveSync();
-  return { ok: true, ...result };
-}
-
-export async function restoreCandidate(id) {
-  restoreCandidateRecord(state.data, id);
-  await saveSync();
-  return { ok: true };
-}
-
-export async function removeCandidates(ids) {
-  const summary = { archived: 0, deleted: 0 };
-  ids.forEach((id) => {
-    const result = archiveOrDeleteCandidate(state.data, id);
-    if (result.action === "archived") summary.archived++;
-    if (result.action === "deleted") summary.deleted++;
-  });
-  await saveSync();
-  return { ok: true, ...summary };
+  return state.data?.reports ? [...state.data.reports].reverse() : []
 }
 
 export async function submitReport(name, message) {
-  if (!state.data || !message?.trim()) return;
-  if (!state.data.reports) state.data.reports = [];
+  if (!state.data || !message?.trim()) return
+  if (!state.data.reports) state.data.reports = []
   state.data.reports.push({
-    id: makeId("rpt"),
-    name: name?.trim() || "Anonymous",
+    id: 'rpt_' + Date.now(),
+    name: name?.trim() || 'Anonymous',
     message: message.trim(),
-    electionType: state.electionType || "",
+    electionType: state.electionType || '',
     deviceId: Device.getId(),
     resolved: false,
-    reply: "",
-    replyTimestamp: "",
+    reply: '',
+    replyTimestamp: '',
     followUps: [],
-    timestamp: new Date().toISOString(),
-  });
-  await saveSync();
+    timestamp: new Date().toISOString()
+  })
+  await saveSync()
 }
 
-export async function followUpReport(id, message) {
-  const r = state.data?.reports?.find((x) => x.id === id);
+export function followUpReport(id, message) {
+  const r = state.data?.reports?.find(x => x.id === id)
   if (r) {
-    r.followUps = r.followUps || [];
-    r.followUps.push({
-      message: message.trim(),
-      timestamp: new Date().toISOString(),
-    });
-    await saveSync();
+    r.followUps = r.followUps || []
+    r.followUps.push({ message: message.trim(), timestamp: new Date().toISOString() })
+    saveSync()
   }
 }
 
-export async function resolveReport(id) {
-  const r = state.data?.reports?.find((x) => x.id === id);
-  if (r) {
-    r.resolved = !r.resolved;
-    if (state.data.reports) await saveSync();
-  }
+export function resolveReport(id) {
+  const r = state.data?.reports?.find(x => x.id === id)
+  if (r) { r.resolved = !r.resolved; if (state.data.reports) saveSync() }
 }
 
-export async function replyToReport(id, reply) {
-  const r = state.data?.reports?.find((x) => x.id === id);
-  if (r) {
-    r.reply = reply?.trim() || "";
-    r.replyTimestamp = r.reply ? new Date().toISOString() : "";
-    if (state.data.reports) await saveSync();
-  }
+export function replyToReport(id, reply) {
+  const r = state.data?.reports?.find(x => x.id === id)
+  if (r) { r.reply = reply?.trim() || ''; r.replyTimestamp = r.reply ? new Date().toISOString() : ''; if (state.data.reports) saveSync() }
 }
 
-export async function removeReport(id) {
-  if (state.data?.reports) {
-    state.data.reports = state.data.reports.filter((x) => x.id !== id);
-    await saveSync();
-  }
+export function removeReport(id) {
+  if (state.data?.reports) { state.data.reports = state.data.reports.filter(x => x.id !== id); saveSync() }
 }
 
-export async function editReport(id, fields) {
-  const r = state.data?.reports?.find((x) => x.id === id);
-  if (r) {
-    Object.assign(r, fields);
-    await saveSync();
-  }
-}
-
-export function deviceVotedForElection(type = state.electionType) {
-  if (!state.data) return false;
-  return state.data.votedDevices.includes(Device.getId() + ":" + type);
+export function editReport(id, fields) {
+  const r = state.data?.reports?.find(x => x.id === id)
+  if (r) { Object.assign(r, fields); saveSync() }
 }
 
 export function deviceVoted() {
-  if (!state.data) return false;
-  const prefix = Device.getId() + ":";
-  const uniqueElectionTypes = new Set(
-    state.data.votedDevices
-      .filter((d) => d.startsWith(prefix))
-      .map((d) => d.slice(prefix.length)),
-  );
-  return uniqueElectionTypes.size >= 3;
+  if (!state.data) return false
+  const prefix = Device.getId() + ':'
+  const count = state.data.votedDevices.filter(d => d.startsWith(prefix)).length
+  return count >= 3
 }
 
 export function deviceVotedAny() {
-  return deviceVoted();
-}
-
-export async function seedTestData() {
-  if (!state.data) return;
-  const settings = state.data.settings;
-  const grades = settings.grades?.length ? settings.grades : ["7"];
-  const clubs = settings.clubs?.length ? settings.clubs : ["General Club"];
-
-  // Ensure positions exist
-  if (!state.data.positions || state.data.positions.length === 0) {
-    state.data.positions = defaultPositions();
-    console.log("Created default positions");
-  }
-
-  state.data.candidates = [];
-  state.data.voters = [];
-  state.data.votes = [];
-  state.data.votedDevices = [];
-  state.data.reports = [];
-
-  const positionCandidates = [
-    { positionName: "SBO President", candidates: [
-      { name: "Bamboo Santiago", party: "ASPIRANTS" },
-      { name: "Franchesca Cruz", party: "AURORA" }
-    ]},
-    { positionName: "Vice President", candidates: [
-      { name: "Mhonica Espanillo", party: "ASPIRANTS" },
-      { name: "Alessandra Tirona", party: "AURORA" }
-    ]},
-    { positionName: "Secretary", candidates: [
-      { name: "Allison Kiangan", party: "ASPIRANTS" },
-      { name: "Elaixiah Samson", party: "AURORA" }
-    ]},
-    { positionName: "Treasurer", candidates: [
-      { name: "Rachenne Lestino", party: "ASPIRANTS" },
-      { name: "Dianessa Canillas", party: "AURORA" }
-    ]},
-    { positionName: "Auditor", candidates: [
-      { name: "Ann Rhea Abance", party: "ASPIRANTS" },
-      { name: "Danielle Ordinario", party: "AURORA" }
-    ]},
-    { positionName: "P.R.O.", candidates: [
-      { name: "Gianna Ayudoc", party: "ASPIRANTS" },
-      { name: "Shaun Delos Santos", party: "AURORA" }
-    ]},
-    { positionName: "Male Sergeant at Arms", candidates: [
-      { name: "Joaquin Cabrera", party: "ASPIRANTS" },
-      { name: "Dominic Pascual", party: "AURORA" }
-    ]},
-    { positionName: "Female Sergeant at Arms", candidates: [
-      { name: "Rhea Saggot", party: "ASPIRANTS" },
-      { name: "Antonia Malla", party: "AURORA" }
-    ]},
-    { positionName: "Grade 7-10 Representative", candidates: [
-      { name: "Amber Santos", party: "ASPIRANTS", grade: "7" },
-      { name: "Phoebe Bacoco", party: "AURORA", grade: "7" },
-      { name: "Yana Macabeo", party: "ASPIRANTS", grade: "8" },
-      { name: "Sydney Rodriguez", party: "AURORA", grade: "8" },
-      { name: "Prince Bannagaw", party: "ASPIRANTS", grade: "9" },
-      { name: "Aiyah De Guzman", party: "AURORA", grade: "9" },
-      { name: "Princess Santos", party: "ASPIRANTS", grade: "10" },
-      { name: "Rhiann Dagdagan", party: "AURORA", grade: "10" }
-    ]},
-    { positionName: "Chinese Representative", candidates: [
-      { name: "Austin Correos", party: "ASPIRANTS" },
-      { name: "Angelynna Weng", party: "AURORA" }
-    ]}
-  ];
-
-  console.log("Available positions:", state.data.positions.map(p => ({ id: p.id, name: p.name })));
-  
-  positionCandidates.forEach(({ positionName, candidates }) => {
-    const position = state.data.positions.find(p => p.name === positionName);
-    if (!position) {
-      console.warn("Position not found:", positionName);
-      return;
-    }
-
-    console.log("Adding candidates for position:", position.name, candidates.length);
-    candidates.forEach(candidate => {
-      state.data.candidates.push({
-        id: makeId("cand"),
-        positionId: position.id,
-        name: candidate.name,
-        party: candidate.party,
-        grade: candidate.grade || "",
-        section: "",
-        club: "",
-        image: "",
-        archived: false,
-        archivedAt: "",
-      });
-    });
-  });
-
-  console.log("Total candidates seeded:", state.data.candidates.length);
-
-  // Seed directly to Supabase
-  const supabaseResult = await DB.seedCandidatesToSupabase(state.year, state.data.candidates);
-  if (supabaseResult.ok) {
-    console.log(`Successfully seeded ${supabaseResult.count} candidates to Supabase`);
-  } else {
-    console.warn("Supabase seed failed:", supabaseResult.error);
-  }
-
-  const voterTemplates = [
-    {
-      name: "Test Voter One",
-      grade: grades[0],
-      section: settings.sectionsByGrade?.[grades[0]]?.[0] || "",
-      electionType: "sbo",
-    },
-    {
-      name: "Test Voter Two",
-      grade: grades[1] || grades[0],
-      section: settings.sectionsByGrade?.[grades[1] || grades[0]]?.[0] || "",
-      electionType: "classroom",
-    },
-    {
-      name: "Test Voter Three",
-      grade: grades[2] || grades[0],
-      section: settings.sectionsByGrade?.[grades[2] || grades[0]]?.[0] || "",
-      electionType: "club",
-      club: clubs[0],
-    },
-    // Add test voters for each grade to test grade filtering
-    ...grades.map((grade, i) => ({
-      name: `Grade ${grade} Test Voter`,
-      grade,
-      section: settings.sectionsByGrade?.[grade]?.[0] || "",
-      electionType: "sbo",
-    })),
-  ];
-
-  voterTemplates.forEach((template, voterIndex) => {
-    const voterId = makeId("v");
-    state.data.voters.push({
-      ...template,
-      id: voterId,
-      club: template.club || "",
-      deviceId: `seed-device-${voterIndex + 1}`,
-      timestamp: new Date(Date.now() - voterIndex * 86400000).toISOString(),
-    });
-    state.data.votedDevices.push(
-      `seed-device-${voterIndex + 1}:${template.electionType}`,
-    );
-
-    positions
-      .filter((position) => (position.type || "sbo") === template.electionType)
-      .forEach((position) => {
-        const candidates = state.data.candidates.filter((candidate) => {
-          if (candidate.positionId !== position.id) return false;
-          if (template.electionType === "classroom")
-            return !candidate.section || candidate.section === template.section;
-          if (template.electionType === "club")
-            return !candidate.club || candidate.club === template.club;
-          // For representative positions, show all candidates regardless of grade
-          if (position.filterByGrade)
-            return true;
-          return true;
-        });
-        candidates.slice(0, position.maxVote || 1).forEach((candidate) => {
-          state.data.votes.push({
-            id: makeId("vt"),
-            voterId,
-            candidateId: candidate.id,
-            positionId: position.id,
-            timestamp: new Date(
-              Date.now() - voterIndex * 86400000,
-            ).toISOString(),
-          });
-        });
-      });
-  });
-
-  state.data.reports.push({
-    id: makeId("rpt"),
-    name: "Test Voter One",
-    message: "I need help checking if my vote was submitted.",
-    electionType: "sbo",
-    deviceId: "seed-device-1",
-    resolved: false,
-    reply: "",
-    replyTimestamp: "",
-    followUps: [],
-    timestamp: new Date().toISOString(),
-  });
-
-  await saveSync();
+  if (!state.data) return false
+  const prefix = Device.getId() + ':'
+  return state.data.votedDevices.filter(d => d.startsWith(prefix)).length >= 3
 }
 
 export async function saveSync() {
   if (state.data) {
-    try {
-      await DB.save(state.year, state.data);
-      console.log("Data saved successfully for year:", state.year);
-    } catch (e) {
-      console.error("saveSync failed:", e);
-      throw e;
-    }
+    try { await DB.save(state.year, state.data) }
+    catch (e) { console.error('saveSync failed:', e) }
   }
-}
-
-function appendSubmittedBallot(voterId, timestamp) {
-  const v = state.voter;
-  const et = state.electionType;
-  const d = state.data;
-
-  d.voters.push({
-    id: voterId,
-    name: v.name.trim(),
-    grade: v.grade,
-    section: v.section,
-    club: v.club || "",
-    electionType: et,
-    deviceId: Device.getId(),
-    timestamp,
-  });
-  d.votedDevices.push(`${Device.getId()}:${et}`);
-
-  getActivePositions(et).forEach((position) => {
-    (state.selectedVotes[position.id] || []).forEach((candidateId) => {
-      d.votes.push({
-        id: makeId("vt"),
-        voterId,
-        candidateId,
-        positionId: position.id,
-        timestamp,
-      });
-    });
-  });
-}
-
-export async function submitBallot() {
-  if (!state.data) return { ok: false, error: "Election data is not loaded." };
-  const validation = validateBallotSelections(state.data, state.electionType, state.voter, state.selectedVotes);
-  if (!validation.ok) return validation;
-
-  const voterId = makeId("v");
-  const timestamp = new Date().toISOString();
-
-  try {
-    const cloudResult = await DB.castBallot(
-      state.year,
-      state.electionType,
-      Device.getId(),
-      {
-        id: voterId,
-        name: state.voter.name.trim(),
-        grade: state.voter.grade,
-        section: state.voter.section,
-        club: state.voter.club || "",
-      },
-      state.selectedVotes,
-    );
-
-    appendSubmittedBallot(voterId, timestamp);
-    if (!cloudResult) await saveSync();
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message || "Unable to submit ballot." };
-  }
-}
-
-export async function signInAdmin(email, password) {
-  state.adminLoginError = "";
-  state.adminSetupWarning = "";
-
-  const cloud = await DB.signInAdmin(email, password);
-  if (cloud.ok) {
-    state.isAdmin = true;
-    state.adminView = "dashboard";
-    state.adminEmail = email || "";
-    sessionStorage.setItem("sbo_admin", "1");
-    sessionStorage.setItem("sbo_admin_auth", "supabase");
-    return { ok: true };
-  }
-
-  if (!cloud.fallback && DB.normalizedReady) {
-    state.adminLoginError = cloud.error || "Unable to sign in.";
-    return { ok: false, error: state.adminLoginError };
-  }
-
-  if (password === getSettings().adminPassword) {
-    state.isAdmin = true;
-    state.adminView = "dashboard";
-    state.adminSetupWarning = "Using local password fallback. Configure Supabase Auth and admin_profiles for production.";
-    sessionStorage.setItem("sbo_admin", "1");
-    sessionStorage.setItem("sbo_admin_auth", "fallback");
-    return { ok: true };
-  }
-
-  state.adminLoginError = cloud.error || "Incorrect password.";
-  return { ok: false, error: state.adminLoginError };
-}
-
-export async function signOutAdmin() {
-  await DB.signOutAdmin();
-  state.isAdmin = false;
-  state.adminView = "dashboard";
-  state.adminPass = "";
-  state.adminEmail = "";
-  sessionStorage.removeItem("sbo_admin");
-  sessionStorage.removeItem("sbo_admin_auth");
-  sessionStorage.removeItem("sbo_adminView");
 }
 
 async function loadYear(year) {
-  let data = await DB.get(year);
+  let data = await DB.get(year)
   if (!data) {
-    data = freshData();
-    await DB.save(year, data);
+    data = freshData()
+    await DB.save(year, data)
   }
-  data = normalizeData(data);
-  state.year = year;
-  state.data = data;
-  state.years = await DB.list();
-  const s = data.settings;
-  state.voter = {
-    name: "",
-    grade: s.grades[0] || "7",
-    section: (s.sectionsByGrade?.[s.grades[0]] || [""])[0] || "",
-    club: (s.clubs || [])[0] || "",
-  };
-  state.electionType = "sbo";
-  state.candTabType = "sbo";
-  state.selectedVotes = {};
-  state.loginError = "";
-  state.logFilter = { grade: "", section: "" };
-  await saveSync();
+  if (!data.settings.clubs) data.settings.clubs = ['English Club', 'Science Club', 'Math Club']
+  if (!data.reports) data.reports = []
+  if (!data.votedDevices) data.votedDevices = []
+  /* Migrate: filterByGrade only for grade-specific rep; remove from all others */
+  data.positions.forEach(p => {
+    if (p.type === 'sbo' && /grade/i.test(p.name) && /representative/i.test(p.name)) {
+      p.filterByGrade = true
+    } else {
+      delete p.filterByGrade
+    }
+  })
+  state.year = year
+  state.data = data
+  state.years = await DB.list()
+  const s = data.settings
+  state.voter = { name: '', grade: s.grades[0] || '7', section: (s.sectionsByGrade?.[s.grades[0]] || [''])[0] || '', club: (s.clubs || [])[0] || '' }
+  state.electionType = 'sbo'
+  state.candTabType = 'sbo'
+  state.selectedVotes = {}
+  state.loginError = ''
+  state.logFilter = { grade: '', section: '' }
 }
 
 export async function initApp() {
   try {
-    await DB.open();
-    state.years = await DB.list();
-    const target = state.years.includes(state.year)
-      ? state.year
-      : state.years[state.years.length - 1] || state.year;
-    await loadYear(target);
-    if (sessionStorage.getItem("sbo_admin")) {
-      state.isAdmin = true;
-      state.adminView = sessionStorage.getItem("sbo_adminView") || "dashboard";
+    await DB.open()
+    state.years = await DB.list()
+    const target = state.years.includes(state.year) ? state.year : (state.years[state.years.length - 1] || state.year)
+    await loadYear(target)
+    if (sessionStorage.getItem('sbo_admin')) {
+      state.isAdmin = true
+      state.adminView = sessionStorage.getItem('sbo_adminView') || 'dashboard'
     }
   } catch (e) {
-    console.error("initApp failed:", e);
+    console.error('initApp failed:', e)
+    /* If no data loaded, create fresh data so the UI isn't blank */
     if (!state.data) {
-      state.data = freshData();
-      state.year = String(new Date().getFullYear());
+      state.data = freshData()
+      state.year = String(new Date().getFullYear())
     }
   }
-  state.loading = false;
+  state.loading = false
 }
 
 export async function switchYear(year) {
-  state.loading = true;
-  await loadYear(year);
-  state.adminView = "dashboard";
-  state.loading = false;
+  state.loading = true
+  await loadYear(year)
+  state.adminView = 'dashboard'
+  state.loading = false
 }
 
 export async function createNewYear(year) {
-  if (!year || state.years.includes(year)) {
-    alert("Year already exists or invalid.");
-    return;
-  }
-  state.loading = true;
-  await DB.save(year, freshData());
-  await loadYear(year);
-  state.loading = false;
+  if (!year || state.years.includes(year)) { alert('Year already exists or invalid.'); return }
+  state.loading = true
+  await DB.save(year, freshData())
+  await loadYear(year)
+  state.loading = false
 }
 
 export async function deleteAndSwitch(year) {
-  await DB.remove(year);
-  const yrs = await DB.list();
-  if (yrs.length) await switchYear(yrs[yrs.length - 1]);
-  else await switchYear(String(new Date().getFullYear()));
+  await DB.remove(year)
+  const yrs = await DB.list()
+  if (yrs.length) await switchYear(yrs[yrs.length - 1])
+  else await switchYear(String(new Date().getFullYear()))
 }
